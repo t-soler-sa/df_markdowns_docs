@@ -1398,6 +1398,7 @@ class LazyClassProperty:
 
 ```
 ---
+
 ### DF Modules: Config.
 #### Summary
 
@@ -1440,6 +1441,16 @@ Provide a thread-safe singleton for loading and managing all configuration requi
 The core.py script ensures that the entire platform has access to a clean, validated, and environment-aware configuration.
 
 ```python
+
+# core.py
+"""
+Manages configuration loading and parsing for the Data Platform Framework.
+
+This module provides a thread-safe singleton (`ConfigSetup`) that loads
+runtime configuration, reads environment-specific settings, and dynamically
+merges platform overrides. It ensures consistent, validated access to all
+configuration settings across the framework.
+"""
 
 from typing import Type, TypeVar, Union, get_type_hints, get_origin, get_args
 from data_framework.modules.config.model.flows import (
@@ -1487,16 +1498,26 @@ from data_framework.modules.exception.aws_exceptions import STSError
 import threading
 import os
 import sys
-from enum import Enum
 import json
-from pathlib import Path
 import zipfile
 import boto3
+from enum import Enum
+from pathlib import Path
 
 T = TypeVar('T')
 
 
 def config(parameters: dict = None, reset: bool = False) -> Config:
+    """
+    Retrieve the singleton Config object.
+
+    Args:
+        parameters (dict, optional): CLI parameters or overrides.
+        reset (bool): If True, reinitialize the Config.
+
+    Returns:
+        Config: The loaded configuration.
+    """
     if ConfigSetup._instancia is None or reset:
         return ConfigSetup(parameters)._instancia.config
     else:
@@ -1504,6 +1525,15 @@ def config(parameters: dict = None, reset: bool = False) -> Config:
 
 
 class ConfigSetup:
+    """
+    Thread-safe singleton class responsible for loading and parsing configuration.
+
+    Handles:
+    - Reading framework-level config (e.g., environment, platform)
+    - Reading dataflow-specific config
+    - Merging dynamic overrides
+    - Parsing into dataclass models
+    """
 
     _instancia = None
     _lock = threading.Lock()
@@ -1526,7 +1556,11 @@ class ConfigSetup:
         return cls._instancia
 
     def __init__(self, parameters: dict = None):
+        """
+        Initialize and load the complete configuration model.
+        """
         try:
+            # If parameters not passed explicitly, attempt to parse CLI arguments
             if not parameters:
                 parameters = {}
                 try:
@@ -1538,11 +1572,12 @@ class ConfigSetup:
                     raise ParameterParseError(arguments=sys.argv)
 
             data_framework_config = ConfigSetup.read_data_framework_config()
+
             parameters['bucket_prefix'] = data_framework_config['s3_bucket_prefix']
             platform = data_framework_config.get('platform', Platform.DATA_PLATFORM.value)
+
+            # Handle special case for INFINITY platform
             if platform == Platform.INFINITY.value and not parameters.get('local_file'):
-                # Custom configurarion for Infinity execution
-                # TODO: remove when migrating to Data Platform
                 parameters['dataflow'] = 'default'
                 parameters['process'] = 'landing_to_raw'
                 self._instancia.config = Config(
@@ -1559,11 +1594,13 @@ class ConfigSetup:
                     platform=Platform.INFINITY,
                     parameters=ConfigSetup.parse_to_model(
                         model=Parameters,
-                        json_file=parameters
+                        json_file=parameters,
+                        environment=data_framework_config['environment']
                     ),
                     project_id=Platform.INFINITY.value
                 )
             else:
+                # Normal Data Platform path
                 dataflow_config = ConfigSetup.read_dataflow_config(
                     dataflow=parameters.get('dataflow'),
                     local_file=parameters.get('local_file'),
@@ -1583,7 +1620,12 @@ class ConfigSetup:
 
     @classmethod
     def read_data_framework_config(cls) -> dict:
-        # Obtain AWS account ID
+        """
+        Load data_framework_config.json based on the current AWS account ID.
+
+        Returns:
+            dict: Config settings mapped to account.
+        """
         try:
             sts_client = boto3.client('sts', region_name=os.environ["AWS_REGION"])
             sts_client = boto3.client(
@@ -1595,13 +1637,13 @@ class ConfigSetup:
             account_id = response['Account']
         except Exception:
             raise STSError(error_message='Error obtaining AWS account ID from STS for config setup')
-        # Read data framework config file
+
         config_json = cls.read_config_file(
             absolute_path='data_framework/modules/config/data_framework_config.json',
             relative_path='data_framework_config.json'
         )
-        # Search account ID in config file
         current_config = config_json.get(account_id)
+
         if not current_config:
             raise AccountNotFoundError(
                 account_id=account_id, available_ids=list(config_json.keys())
@@ -1611,7 +1653,9 @@ class ConfigSetup:
 
     @classmethod
     def read_notifications_config(cls) -> dict:
-        # Read data framework notifications file
+        """
+        Read notification configuration (data_framework_notifications.json).
+        """
         notifications_config = cls.read_config_file(
             absolute_path='data_framework/modules/notification/data_framework_notifications.json',
             relative_path='../notification/data_framework_notifications.json'
@@ -1620,9 +1664,20 @@ class ConfigSetup:
 
     @classmethod
     def read_config_file(cls, absolute_path: str, relative_path: str) -> dict:
+        """
+        Read a JSON configuration file either from zip or local filesystem.
+
+        Args:
+            absolute_path (str): Path inside zip.
+            relative_path (str): Path on filesystem.
+
+        Returns:
+            dict: Loaded configuration.
+        """
         try:
             current_path = Path(__file__).resolve()
             if 'data_framework.zip' in current_path.parts:
+                # If executing from inside a zip archive
                 config_path = absolute_path
                 zip_index = current_path.parts.index('data_framework.zip')
                 zip_path = Path(*current_path.parts[:zip_index+1])
@@ -1639,6 +1694,9 @@ class ConfigSetup:
 
     @classmethod
     def read_dataflow_config(cls, dataflow: str, local_file: str, environment: str, platform: str) -> dict:
+        """
+        Read dataflow-specific configuration from transformation files.
+        """
         try:
             if local_file is not None:
                 transformation_path = local_file
@@ -1652,9 +1710,11 @@ class ConfigSetup:
                         config_json = dict(json.loads(file.read()))
         except Exception:
             raise ConfigFileNotFoundError(config_file_path=transformation_path)
+
         dataflows = config_json.get('dataflows')
         common_flow_json = dataflows.get('default')
         current_flow_json = dataflows.get(dataflow, None)
+
         if current_flow_json is None:
             current_flow_json = common_flow_json
         else:
@@ -1662,15 +1722,20 @@ class ConfigSetup:
                 current_dataflow=current_flow_json,
                 default=common_flow_json
             )
+
+        # Inject dynamic values
         current_flow_json['environment'] = environment
         current_flow_json['platform'] = platform
         current_flow_json['project_id'] = config_json.get('project_id')
         current_flow_json['data_framework_notifications'] = cls.read_notifications_config()
+
         return current_flow_json
 
     @classmethod
     def merged_current_dataflow_with_default(cls, current_dataflow: dict, default: dict) -> dict:
-
+        """
+        Recursively merge current dataflow config with defaults.
+        """
         merged = current_dataflow.copy()
 
         for key, value in default.items():
@@ -1685,7 +1750,11 @@ class ConfigSetup:
 
     @classmethod
     def parse_to_model(cls, model: Type[T], json_file: dict, environment: str, parameters: dict = None) -> T:
-        # TODO: refactorizar
+        """
+        Recursively parse a JSON configuration dictionary into a typed dataclass model.
+
+        Handles nested models, enums, lists, optionals.
+        """
         fieldtypes = get_type_hints(model)
         kwargs = {}
         model_instantiated = None
@@ -1693,6 +1762,7 @@ class ConfigSetup:
         try:
             for field, field_type in fieldtypes.items():
                 default_value = None
+                # Handling complex nested fields
                 if isinstance(field_type, type) and issubclass(field_type, cls._models) and json_file:
                     kwargs[field] = cls.parse_to_model(
                         model=field_type,
@@ -1757,13 +1827,13 @@ class ConfigSetup:
                                 model=field_model.get_subclass_from_dict(field_item),
                                 json_file=field_item,
                                 environment=environment
+                            ) if field_model == Transformation else cls.parse_to_model(
+                                model=field_model,
+                                json_file=field_item,
+                                environment=environment
                             )
-                            if field_model == Transformation else
-                            cls.parse_to_model(model=field_model, json_file=field_item, environment=environment)
                             for field_item in json_file.get(field)
                         ]
-                elif get_origin(field_type) is list and all(issubclass(item, Enum) for item in get_args(field_type)) and json_file:
-                    kwargs[field] = [get_args(field_type)[0](value) for value in json_file.get(field)]
                 else:
                     if hasattr(model, field):
                         default_value = getattr(model, field)
@@ -1773,6 +1843,7 @@ class ConfigSetup:
                         kwargs[field] = json_file.get(field, default_value)
                     else:
                         kwargs[field] = default_value
+
             model_instantiated = model(**kwargs)
         except Exception:
             raise ConfigParseError(field=field, field_type=str(field_type))
@@ -1782,6 +1853,7 @@ class ConfigSetup:
 
 ```
 
+---
 #### src/data_framework/modules/config/model/flows.py
 #### `model/flows.py`
 
@@ -1797,6 +1869,19 @@ Define the complete structure of a configuration file, including all possible pr
 The model/flows.py script defines the expected schema and structure for all configuration files consumed by the framework.
 
 ```python
+
+# flows.py
+"""
+Defines the full configuration models and enums for the Data Platform Framework.
+
+This module structures all supported configuration options, including:
+- Process flows
+- Table definitions
+- Landing file specs
+- Technology/platform settings
+- Spark dynamic tuning
+- Notification wiring
+"""
 
 from data_framework.modules.storage.interface_storage import Database
 from data_framework.modules.notification.interface_notifications import (
@@ -1816,38 +1901,65 @@ from typing import Optional, List, Tuple, Union
 import os
 
 
+# --- Enumerations for controlled config vocabularies ---
+
 class Environment(Enum):
+    """
+    Supported deployment environments.
+    """
     LOCAL = "local"
     DEVELOP = "develop"
     PREPRODUCTION = "preproduction"
     PRODUCTION = "production"
 
+
 class Platform(Enum):
-    # TODO: remove when migrating Infinity to Data Platform
+    """
+    Supported platform identifiers.
+    """
     DATA_PLATFORM = "data_platform"
     INFINITY = "infinity"
 
+
 class DateLocated(Enum):
+    """
+    Where dates are found in incoming files.
+    """
     FILENAME = "filename"
     COLUMN = "column"
 
+
 class Technologies(Enum):
+    """
+    Supported processing engines.
+    """
     LAMBDA = "lambda"
     EMR = "emr"
 
+
 class LandingFileFormat(Enum):
+    """
+    Accepted landing file formats.
+    """
     CSV = "csv"
     JSON = "json"
-    # TODO: JSON Lines implementation
-    JSON_LINES = "json_lines"
+    JSON_LINES = "json_lines"  # TODO: JSON Lines implementation
     EXCEL = "xls"
     XML = "xml"
 
+
 class OutputFileFormat(Enum):
+    """
+    Supported output file formats.
+    """
     CSV = "csv"
     JSON = "json"
 
+
 class ExecutionMode(Enum):
+    """
+    How the pipeline executes: incremental (delta) or full.
+    """
     DELTA = "delta"
     FULL = "full"
 
@@ -1855,34 +1967,64 @@ class ExecutionMode(Enum):
     def is_delta(self) -> bool:
         return self.value == 'delta'
 
+
 class JSONSpectFormat(Enum):
+    """
+    Structure of exported JSON outputs.
+    """
     LINES = "lines"
     COLUMNS = "columns"
 
+
 class JSONFormat(Enum):
+    """
+    Structure of imported JSON inputs.
+    """
     DICTIONARY = "dictionary"
     ARRAY = "array"
 
+
 class CastingStrategy(Enum):
+    """
+    Strategies for casting data types during processing.
+    """
     ONE_BY_ONE = "one_by_one"
     DYNAMIC = "dynamic"
 
+
 class TransformationType(Enum):
+    """
+    Supported types of transformations on data.
+    """
     PARSE_DATES = "parse_dates"
+
+
+# --- Configuration models ---
 
 @dataclass
 class Hardware:
+    """
+    Hardware specifications for EMR/Spark jobs.
+    """
     ram: int = 4
     cores: int = 2
     disk: int = 20
 
+
 @dataclass
 class VolumetricExpectation:
+    """
+    Expected data volume characteristics.
+    """
     data_size_gb: float = 0.1
     avg_file_size_mb: int = 100
 
+
 @dataclass
 class SparkConfiguration:
+    """
+    Spark tuning configurations based on volume or custom settings.
+    """
     full_volumetric_expectation: VolumetricExpectation = field(default_factory=VolumetricExpectation)
     delta_volumetric_expectation: VolumetricExpectation = field(default_factory=VolumetricExpectation)
     delta_custom: Optional[dict] = field(default_factory=dict)
@@ -1890,27 +2032,23 @@ class SparkConfiguration:
 
     @property
     def volumetric_expectation(self) -> VolumetricExpectation:
-
         from data_framework.modules.config.core import config
-
         if config().parameters.execution_mode == ExecutionMode.FULL:
             return self.full_volumetric_expectation
-
         return self.delta_volumetric_expectation
 
     @property
     def custom_config(self) -> dict:
-
         from data_framework.modules.config.core import config
-
         if config().parameters.execution_mode == ExecutionMode.FULL:
             return self.full_custom
-
         return self.delta_custom
 
     @property
     def config(self) -> dict:
-
+        """
+        Get final Spark configuration either from custom settings or recommended.
+        """
         from data_framework.modules.config.core import config
 
         if (
@@ -1919,27 +2057,35 @@ class SparkConfiguration:
         ):
             return self.custom_config
         else:
-
             from data_framework.modules.data_process.integrations.spark.dynamic_config import DynamicConfig
-
             volumetric = self.volumetric_expectation
             return DynamicConfig.recommend_spark_config(
-                    dataset_size_gb=volumetric.data_size_gb,
-                    avg_file_size_mb=volumetric.avg_file_size_mb
-                )
+                dataset_size_gb=volumetric.data_size_gb,
+                avg_file_size_mb=volumetric.avg_file_size_mb
+            )
+
 
 @dataclass
 class ProcessingSpecifications:
+    """
+    Specifies which technology and tuning apply to a process.
+    """
     technology: Technologies = Technologies.EMR
     spark_configuration: SparkConfiguration = field(default_factory=SparkConfiguration)
 
 
 @dataclass
 class DateLocatedFilename:
+    """
+    Regex to extract dates from filenames.
+    """
     regex: str
 
 
 class InterfaceSpecs:
+    """
+    Base class for input file specification models.
+    """
 
     @property
     def read_config(self) -> dict:
@@ -1948,6 +2094,9 @@ class InterfaceSpecs:
 
 @dataclass
 class XMLSpecs(InterfaceSpecs):
+    """
+    Specifications for reading XML input files.
+    """
     encoding: str
     xpath: str
     date_located: DateLocated
@@ -1960,6 +2109,9 @@ class XMLSpecs(InterfaceSpecs):
 
 @dataclass
 class JSONSpecs(InterfaceSpecs):
+    """
+    Specifications for reading JSON input files.
+    """
     encoding: str
     date_located: DateLocated
     date_located_filename: DateLocatedFilename
@@ -1974,13 +2126,20 @@ class JSONSpecs(InterfaceSpecs):
 
     @property
     def levels(self) -> List[str]:
+        """
+        JSON navigation path if hierarchical.
+        """
         if self.source_level:
             return self.source_level.split('.')
         else:
             return []
 
+
 @dataclass
 class CSVSpecs(InterfaceSpecs):
+    """
+    Specifications for reading CSV input files.
+    """
     header_position: int
     header: bool
     encoding: str
@@ -2013,10 +2172,13 @@ class CSVSpecs(InterfaceSpecs):
         if self.nan_value:
             config["nanValue"] = self.nan_value
         return config
-
+# flows.py (continued)
 
 @dataclass
 class CSVSpecsReport:
+    """
+    Specifications for output CSV reports.
+    """
     header: bool
     index: bool
     encoding: str
@@ -2025,11 +2187,17 @@ class CSVSpecsReport:
 
 @dataclass
 class JSONSpecsReport:
+    """
+    Specifications for output JSON reports.
+    """
     format: JSONSpectFormat = JSONSpectFormat.LINES
 
 
 @dataclass
 class Parameters:
+    """
+    Dynamic runtime parameters for the current process execution.
+    """
     dataflow: str
     process: str
     table: str
@@ -2041,11 +2209,17 @@ class Parameters:
 
     @property
     def region(self) -> str:
+        """
+        AWS region retrieved from environment variables.
+        """
         return os.environ["AWS_REGION"]
 
 
 @dataclass
 class IncomingFileLandingToRaw:
+    """
+    Configuration for incoming files at the Landing layer.
+    """
     zipped: Optional[str]
     file_format: LandingFileFormat
     filename_pattern: str
@@ -2057,6 +2231,9 @@ class IncomingFileLandingToRaw:
 
     @property
     def specifications(self) -> Union[CSVSpecs, XMLSpecs, JSONSpecs]:
+        """
+        Return the file-specific reading configuration.
+        """
         if self.file_format == LandingFileFormat.XML:
             return self.xml_specs
         elif self.file_format == LandingFileFormat.JSON:
@@ -2067,10 +2244,16 @@ class IncomingFileLandingToRaw:
 
 @dataclass
 class Transformation:
+    """
+    Base class for a data transformation.
+    """
     type: TransformationType
 
     @classmethod
     def get_subclass_from_dict(cls, transformation: dict):
+        """
+        Factory to dynamically instantiate the correct transformation subclass.
+        """
         transformation_type = transformation.get('type')
         transformation_mapping = {
             TransformationType.PARSE_DATES.value: ParseDatesTransformation
@@ -2086,6 +2269,9 @@ class Transformation:
 
 @dataclass
 class ParseDatesTransformation(Transformation):
+    """
+    Transformation that parses string dates into structured formats.
+    """
     columns: List[str]
     source_format: List[str]
     target_format: str = "yyyy-MM-dd"
@@ -2093,6 +2279,9 @@ class ParseDatesTransformation(Transformation):
 
 @dataclass
 class Casting:
+    """
+    Casting specifications for type transformations on data.
+    """
     strategy: CastingStrategy = CastingStrategy.ONE_BY_ONE
     fix_incompatible_characters: bool = True
     master_table: Optional[str] = None
@@ -2101,6 +2290,9 @@ class Casting:
 
 @dataclass
 class DatabaseTable:
+    """
+    Logical and physical metadata for a data table.
+    """
     database: Database
     table: str
     primary_keys: Optional[list] = field(default_factory=list)
@@ -2109,6 +2301,9 @@ class DatabaseTable:
 
     @property
     def database_relation(self) -> str:
+        """
+        Full database name relation, considering platform.
+        """
         from data_framework.modules.config.core import config
         if config().platform == Platform.INFINITY:
             return self.database.value
@@ -2117,12 +2312,17 @@ class DatabaseTable:
 
     @property
     def full_name(self) -> str:
+        """
+        Full qualified table name (database.table).
+        """
         return f'{self.database_relation}.{self.table}'
 
     @property
     def sql_where(self) -> str:
+        """
+        Auto-generated SQL WHERE filter based on partition field.
+        """
         from data_framework.modules.config.core import config
-
         if config().parameters.execution_mode == ExecutionMode.DELTA and self.partition_field:
             return f"{self.partition_field} = '{config().parameters.file_date}'"
         return ""
@@ -2130,9 +2330,15 @@ class DatabaseTable:
 
 @dataclass
 class TableDict:
+    """
+    Wrapper for multiple DatabaseTable objects.
+    """
     tables: Tuple[str, DatabaseTable]
 
     def table(self, table_key: str) -> Union[DatabaseTable, None]:
+        """
+        Retrieve a table configuration by its key.
+        """
         table_info = self.tables.get(table_key)
         if not table_info:
             raise TableKeyError(
@@ -2142,6 +2348,9 @@ class TableDict:
         return table_info
 
     def table_key(self, database: str, table: str) -> Union[str, None]:
+        """
+        Retrieve a key by database and table names.
+        """
         for table_key, database_table in self.tables.items():
             if database_table.database.value == database and database_table.table == table:
                 return table_key
@@ -2150,6 +2359,9 @@ class TableDict:
 
 @dataclass
 class LandingToRaw:
+    """
+    Full configuration for a landing-to-raw pipeline process.
+    """
     incoming_file: IncomingFileLandingToRaw
     output_file: DatabaseTable
     processing_specifications: ProcessingSpecifications = field(default_factory=ProcessingSpecifications)
@@ -2158,14 +2370,23 @@ class LandingToRaw:
 
 @dataclass
 class ProcessVars:
+    """
+    Dynamic variables injected into processes.
+    """
     _variables: dict = field(default_factory=dict)
 
     def get_variable(self, name: str):
+        """
+        Retrieve a variable by name.
+        """
         return self._variables.get(name)
 
 
 @dataclass
 class GenericProcess:
+    """
+    Generic ETL pipeline process connecting source tables to target tables.
+    """
     source_tables: TableDict
     target_tables: TableDict
     processing_specifications: ProcessingSpecifications = field(default_factory=ProcessingSpecifications)
@@ -2175,6 +2396,9 @@ class GenericProcess:
 
 @dataclass
 class OutputReport:
+    """
+    Single output report configuration (e.g., for exports).
+    """
     name: str
     source_table: DatabaseTable
     columns: List[str]
@@ -2191,6 +2415,9 @@ class OutputReport:
 
 @dataclass
 class ToOutput:
+    """
+    Group of output reports generated at the end of a pipeline.
+    """
     output_reports: List[OutputReport]
     processing_specifications: ProcessingSpecifications
     notifications: NotificationDict = field(default_factory=NotificationDict)
@@ -2198,6 +2425,9 @@ class ToOutput:
 
 @dataclass
 class Processes:
+    """
+    Container of all configured processes for a dataflow.
+    """
     landing_to_raw: Optional[LandingToRaw]
     raw_to_staging: Optional[GenericProcess] = None
     staging_to_common: Optional[GenericProcess] = None
@@ -2209,9 +2439,11 @@ class Processes:
 
 @dataclass
 class Config:
+    """
+    Master configuration object used by the entire Data Platform Framework.
+    """
     processes: Processes
     environment: Environment
-    # TODO: remove when migrating Infinity to Data Platform
     platform: Platform
     parameters: Parameters
     project_id: str
@@ -2219,24 +2451,30 @@ class Config:
 
     @property
     def has_next_process(self) -> bool:
+        """
+        Check if there are any remaining processes after the current one.
+        """
         processes = [field.name for field in fields(Processes)]
         current_process_index = processes.index(self.parameters.process)
         posible_processes_begind_index = current_process_index + 1
-
         possible_processes = processes[posible_processes_begind_index:]
         next_processes = [process for process in possible_processes if getattr(self.processes, process) is not None]
-
         return not next_processes
 
     @property
     def is_first_process(self) -> bool:
-        procesess = [field.name for field in fields(Processes)]
-        next_processes = [process for process in procesess if getattr(self.processes, process) is not None]
+        """
+        Check if the current process is the first in the sequence.
+        """
+        processes = [field.name for field in fields(Processes)]
+        next_processes = [process for process in processes if getattr(self.processes, process) is not None]
         current_process_index = next_processes.index(self.parameters.process)
-
         return current_process_index == 0
 
     def current_process_config(self) -> Union[LandingToRaw, GenericProcess, ToOutput]:
+        """
+        Retrieve the full configuration object for the current process.
+        """
         try:
             current_process = self.parameters.process
             current_process_config = getattr(self.processes, current_process)
@@ -4185,6 +4423,8 @@ class DataFlowInterface(ABC):
 ```
 
 
+
+### DF Modules: Exception
 #### src/data_framework/modules/exception/aws_exceptions.py
 ```python
 
