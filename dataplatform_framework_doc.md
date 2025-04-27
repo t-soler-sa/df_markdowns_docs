@@ -124,9 +124,38 @@ setup(
 ```
 
 ---
+
 # source code
+
 ## The Data Framework: Dataflows
+### DF Modules: dataflow
+#### Summary
+This component provides the concrete implementations for various standard dataflow processes within the Data Framework. It includes specific logic for handling data movement and transformation between different layers: Landing to Raw (`landing.py`), Raw to Staging (`staging.py`), Staging to Common (`common.py`), Staging/Common to Business (`business.py`), and Business to Output (`output.py`). Each implementation builds upon the common structure and utilities defined by `DataFlowInterface`.
+
+#### What the "dataflow" component does (big picture)
+- **Goal:** To define the specific, executable logic for each distinct stage of data processing within the framework's defined architecture (e.g., ingestion, staging, business logic application, output generation).
+- **Why it matters:** It encapsulates the unique tasks required at each data layer (like file validation in Landing, transformation logic in Staging/Business, formatting in Output), making the overall data pipeline modular and maintainable.
+- **How:** Each script defines one or more classes (e.g., `ProcessingCoordinator`, `StagingToBusiness`, `RawToStaging`) that inherit from `DataFlowInterface` (located in `src/data_framework/modules/dataflow/`). These classes leverage the inherited properties (access to config, logger, core modules) and helper methods. Key scripts like `landing.py` and `output.py` implement detailed logic within their `process()` methods, covering tasks like file handling, validation, deduplication, data retrieval, format conversion (XML/Excel/JSON to Parquet/JSON Lines), writing data via storage modules, and sending notifications. Other scripts (`business.py`, `common.py`, `staging.py`) currently define the class structure inheriting from the interface, implying their specific process logic would be added later.
+
+#### dataflow Component High-Level: Script by Script
+
+| Script                                | What it is        | What it does |
+| :------------------------------------ | :---------------- | :----------- |
+| `business.py`                         | Dataflow Implementation | Defines classes (`StagingToBusiness`, `CommonToBusiness`) representing dataflows targeting the Business layer. Currently inherits structure from `DataFlowInterface`. |
+| `common.py`                           | Dataflow Implementation | Defines a class (`StagingToCommon`) representing the dataflow from Staging to the Common layer. Currently inherits structure from `DataFlowInterface`. |
+| `landing.py`                          | Dataflow Implementation | Implements `ProcessingCoordinator` for the Landing-to-Raw process. Handles file reading (incl. archives), validation, date extraction, deduplication, partitioning, format normalization (XML/Excel/JSON), and writing to the Raw layer. |
+| `output.py`                           | Dataflow Implementation | Implements `ProcessingCoordinator` for generating output files. Reads data based on configurations, formats (CSV/JSON), applies filters/aliases, writes to specified paths, handles errors per output, and sends notifications. |
+| `staging.py`                          | Dataflow Implementation | Defines a class (`RawToStaging`) representing the dataflow from the Raw layer to the Staging layer. Currently inherits structure from `DataFlowInterface`. |
+
 #### src/data_framework/dataflow/business.py
+#### `src/data_framework/dataflow/business.py`
+**Purpose:**
+This script defines the dataflow classes responsible for processing data into the Business layer of the framework. It provides placeholders for logic that transforms data from Staging or Common layers into business-specific views or aggregates.
+
+**Key parts:**
+- **`StagingToBusiness(DataFlowInterface)` class:** Represents the process of transforming data from the Staging layer to the Business layer. Inherits from `DataFlowInterface`. Currently only calls the parent `__init__`. The specific `process()` logic is expected to be implemented here.
+- **`CommonToBusiness(DataFlowInterface)` class:** Represents the process of transforming data from the Common layer to the Business layer. Inherits from `DataFlowInterface`. Currently only calls the parent `__init__`. The specific `process()` logic is expected to be implemented here.
+
 ```python
 
 # business.py
@@ -171,6 +200,13 @@ class CommonToBusiness(DataFlowInterface):
 ```
 
 #### src/data_framework/dataflow/common.py
+#### `src/data_framework/dataflow/common.py`
+**Purpose:**
+This script defines the dataflow class responsible for processing data into the Common layer of the framework. It provides a placeholder for logic that transforms data from the Staging layer into a standardized, common format.
+
+**Key parts:**
+- **`StagingToCommon(DataFlowInterface)` class:** Represents the process of transforming data from the Staging layer to the Common layer. Inherits from `DataFlowInterface`. Currently only calls the parent `__init__`. The specific `process()` logic is expected to be implemented here.
+
 ```python
 
 # common.py
@@ -201,6 +237,27 @@ class StagingToCommon(DataFlowInterface):
 ```
 
 #### src/data_framework/dataflow/landing.py
+#### `src/data_framework/dataflow/landing.py`
+**Purpose:**
+This script implements the core logic for ingesting data from the Landing layer into the Raw layer. It acts as the entry point for new data, performing crucial steps like reading files, validating their structure and content, checking for duplicates against previous runs, handling different file formats and compressions, and finally writing the validated, potentially normalized data to the Raw storage layer with appropriate partitioning.
+
+**Key parts:**
+- **`ProcessingCoordinator(DataFlowInterface)` class:** Orchestrates the entire landing process.
+    - **`__init__(self)`:** Initializes base class and helpers like `Storage`, `CoreCatalogue`.
+    - **`process(self)`:** Main entry point. Handles different execution modes (`DELTA` for single file, `ON_DEMAND` iterates through files matching a pattern under a prefix). Calls `process_file` for each valid file.
+    - **`process_file(self)`:** Orchestrates the processing of a single file: reads, validates, checks for duplicates, creates partitions, and writes. Manages payload response state (`success`, `next_stage`). Sends `file_arrival` notification. Uses `FileValidator` and `CoreQualityControls`.
+    - **`read_data(self)`:** Reads file content from Landing storage using `Storage.read`. Handles plain files and decompression for ZIP (`ZipFile`) and TAR (`tarfile`) archives, returning a dictionary of file contents.
+    - **`obtain_file_date(self)`:** Extracts a date string from the filename using regex patterns defined in the configuration (`incoming_file.specifications`). Handles named or unnamed regex groups. Raises errors for pattern mismatches or missing groups. `DateLocated.COLUMN` is noted as not implemented.
+    - **`compare_with_previous_file(self, file_contents: dict)`:** Checks if the current file is identical to the last successfully processed file with the same base name by comparing MD5 hashes (`get_file_hash`). Uses `get_last_processed_file_key` to find the previous file. Returns `False` if identical (to skip processing), `True` otherwise.
+    - **`get_last_processed_file_key(self, ...)`:** Finds the S3 key of the most recent previously processed file matching the incoming filename by parsing date/time from the key path.
+    - **`get_file_hash(self, file_content: BytesIO, ...)`:** Calculates the MD5 hash of a file's content.
+    - **`create_partitions(self, file_date: str)`:** Creates partitions in the Glue Data Catalog for the Raw table using `CoreCatalogue.create_partition` based on the extracted `file_date`.
+    - **`write_data(self, file_contents: dict, ...)`:** Writes the validated and potentially normalized file content(s) to the Raw layer using `Storage.write`, applying the created partitions. Calls `normalize_file_content`.
+    - **`normalize_file_content(self, ...)`:** Converts input file content if necessary (XML/Excel to Parquet, JSON to JSON Lines) before writing. Calls specific conversion methods.
+    - **`convert_xml_to_parquet(self, ...)`:** Converts XML content to a Parquet file in memory using `pandas.read_xml` and `df.to_parquet`.
+    - **`convert_excel_to_parquet(self, ...)`:** Converts Excel content to a Parquet file in memory using `pandas.read_excel` and `df.to_parquet`.
+    - **`convert_json_to_json_lines(self, ...)`:** Converts standard JSON (list or dict) into JSON Lines format, ensuring the partition field is added to each line.
+
 ```python
 # landing.py
 """
@@ -608,6 +665,26 @@ if __name__ == '__main__':
 ```
 
 #### src/data_framework/dataflow/output.py
+#### `src/data_framework/dataflow/output.py`
+**Purpose:**
+This script implements the logic for generating final output files based on data residing typically in the Business layer. It reads data according to defined report configurations, formats it (CSV or JSON), applies transformations or filters, writes the formatted data to the Output storage layer, and handles notifications and error reporting for each generated output.
+
+**Key parts:**
+- **`ProcessingCoordinator(DataFlowInterface)` class:** Orchestrates the output generation process.
+    - **`__init__(self)`:** Initializes base class and `Storage`.
+    - **`process(self)`:** Main entry point. Iterates through all `OutputReport` configurations defined in `self.output_reports`. Calls `generate_output_file` for each, captures individual successes/failures in `self.payload_response.outputs`, and raises an `OutputError` if any output fails.
+    - **`generate_output_file(self, config_output: OutputReport)`:** Handles the generation of a single output file. Calls `retrieve_data` and `write_data_to_file`. Raises `NoOutputDataError` if retrieved data is empty.
+    - **`retrieve_data(self, config_output: OutputReport)`:** Reads data for the output using `CoreDataProcess.read_table`. Constructs column list with aliases if provided (`config_output.columns_alias`). Applies filters (`config_output.where`) after formatting them using `format_string`.
+    - **`write_data_to_file(self, df: DataFrame, config_output: OutputReport)`:** Writes the DataFrame (`df`) to the specified output path.
+        - Constructs the filename using `format_string`.
+        - Normalizes the output folder name using `parse_output_folder`.
+        - Determines the full S3 path.
+        - Formats data to CSV (`df.toPandas().to_csv`) or JSON (`df.write.json` to temp location, read back, apply replaces, write final) based on `config_output` specs.
+        - Writes the final content using `Storage.write_to_path`.
+        - Sends `output_generated` notification on success.
+    - **`parse_output_folder(output_folder: str)` (staticmethod):** Cleans and normalizes a string to be used as a folder name (lowercase, underscore spaces, remove special chars).
+    - **`format_string(self, string_to_format: str, ...)`:** Replaces placeholders like `{file_date}`, `{file_name}`, `{current_date}` in strings (e.g., filenames, filters) with actual runtime values.
+
 ```python
 
 # output.py
@@ -837,6 +914,12 @@ if __name__ == '__main__':
 
 ```
 #### src/data_framework/dataflow/staging.py
+#### `src/data_framework/dataflow/staging.py`
+**Purpose:**
+This script defines the dataflow class responsible for processing data from the Raw layer into the Staging layer of the framework. It provides a placeholder for logic that typically involves cleaning, standardizing, and possibly enriching the raw data before it moves further into the Common or Business layers.
+
+**Key parts:**
+- **`RawToStaging(DataFlowInterface)` class:** Represents the process of transforming data from the Raw layer to the Staging layer. Inherits from `DataFlowInterface`. Currently only calls the parent `__init__`. The specific `process()` logic (likely involving reading from Raw, applying transformations/validations, and writing to Staging using `CoreDataProcess`) is expected to be implemented here.
 ```python
 # staging.py
 """
@@ -866,6 +949,7 @@ class RawToStaging(DataFlowInterface):
 ```
 
 ---
+
 ## The Data Framework: Modules.
 
 In this framework, modules/ is a **library of reusable, pluggable building blocks**.  
@@ -2493,7 +2577,40 @@ class Config:
 
 
 ### DF Modules: Data Process
+#### Summary
+This module provides a standardized abstraction layer for data processing operations within the framework. It defines a common interface (`DataProcessInterface`) for tasks like reading, writing (merge, insert, overwrite), transforming, casting, and querying data. It features a core facade (`CoreDataProcess`) that dynamically delegates these operations to technology-specific implementations based on configuration, primarily supporting Apache Spark with Iceberg/Glue integration (`SparkDataProcess`) and a more basic Pandas integration leveraging AWS Athena (`PandasDataProcess`). The module includes helpers for Athena interaction (`AthenaClient`), SQL casting (`Cast`), Spark dynamic configuration (`DynamicConfig`), and various utility functions for Spark transformations and data handling (`integrations/spark/utils.py`, `integrations/spark/transformations/`).
+
+#### What the "data_process" module does (big picture)
+- **Goal:** To offer a consistent, high-level API for diverse data processing needs across different execution environments (EMR/Spark, Lambda/Pandas) and data formats/stores (Iceberg, S3 files via Athena).
+- **Why it matters:** It decouples the core data pipeline logic from the specifics of the underlying data processing engine (Spark vs. Pandas) and storage format (Iceberg vs. others). This promotes code reusability, maintainability, and adaptability to different technological choices or environments.
+- **How:** It employs an interface (`DataProcessInterface`) and facade pattern (`CoreDataProcess`). `CoreDataProcess` acts as the single entry point, dynamically instantiating and using either `SparkDataProcess` or `PandasDataProcess` based on runtime configuration. `SparkDataProcess` provides a rich implementation leveraging Spark SQL, Iceberg capabilities (via Glue Catalog), dynamic configuration generation (`DynamicConfig`), custom transformations (e.g., `parse_dates`), helper utilities (`integrations/spark/utils.py`), monitoring integration, and retry logic for Iceberg operations. `PandasDataProcess` offers a more limited implementation, primarily using Pandas DataFrames and an `AthenaClient` helper for data interaction via SQL queries. The `Cast` helper assists both implementations with SQL-based type casting.
+
+#### data_process Module High-Level: Script by Script
+
+| Script                                                               | What it is        | What it does |
+| :------------------------------------------------------------------- | :---------------- | :----------- |
+| `core_data_process.py`                                               | Core Logic/Facade | Acts as the main entry point, dynamically choosing and delegating data processing tasks to the appropriate technology-specific implementation based on configuration. |
+| `helpers/athena.py`                                                  | AWS Integration Helper | Provides a client (`AthenaClient`) to execute SQL queries against AWS Athena, wait for completion, and retrieve results as Pandas DataFrames. |
+| `helpers/cast.py`                                                    | Data Type Helper  | Contains logic (`Cast` class) for generating SQL `CAST` expressions and formatting data for insertion, particularly for compatibility between different data types and systems. |
+| `integrations/pandas/pandas_data_process.py`                         | Technology Integration (Pandas) | Implements the `DataProcessInterface` using Pandas DataFrames, leveraging the `AthenaClient` to interact with data stored in AWS (via Athena) for read/query/insert operations. Some operations are not implemented. |
+| `integrations/spark/dynamic_config.py`                               | Spark Configuration Helper | Generates recommended Spark configuration settings dynamically based on dataset size, job type, and optimization goals, especially tailored for EMR Serverless constraints. |
+| `integrations/spark/spark_data_process.py`                           | Technology Integration (Spark) | Implements the `DataProcessInterface` using Apache Spark, specifically interacting with Apache Iceberg tables via AWS Glue Catalog. Handles Spark session creation, data reading/writing (merge, insert overwrite, append), casting, joins, and other transformations. Includes retry logic and monitoring. |
+| `integrations/spark/transformations/parse_dates.py`                  | Spark Transformation | Provides a specific Spark transformation function (`parse_dates`) to convert date/timestamp columns between different string formats using Spark SQL functions. |
+| `integrations/spark/utils.py`                                        | Spark Utilities   | Contains helper functions for the Spark integration, including schema conversion (to all strings), mapping types, dynamically applying transformations, fixing incompatible characters in column names/JSON strings, and parsing nested JSON data from files. |
+| `interface_data_process.py`                                          | Interface Definition | Defines the abstract base class (`DataProcessInterface`) and standard data structures (`ReadResponse`, `WriteResponse`) for all data processing operations, ensuring consistency across different implementations (Spark, Pandas). |
+| `interface_dataflow.py`                                | Interface Definition | Defines the abstract base class (`DataFlowInterface`) and common structures/utilities for all specific dataflow implementations within the framework. |
+---
+
 #### src/data_framework/modules/data_process/core_data_process.py
+#### `core_data_process.py`
+**Purpose:**
+This script serves as the primary interface for data processing operations within the framework. It abstracts the underlying technology (Pandas, Spark) by dynamically loading the correct implementation based on the project's configuration. It exposes a set of common data manipulation methods.
+
+**Key parts:**
+- **`CoreDataProcess` class:** The main class acting as a facade.
+- **`_data_process` (LazyClassProperty):** Lazily initializes and returns the appropriate `DataProcessInterface` implementation (e.g., `SparkDataProcess`, `PandasDataProcess`) based on `config().current_process_config().processing_specifications.technology`.
+- **Class Methods (`merge`, `insert_overwrite`, `datacast`, `read_table`, `delete_from_table`, `insert_dataframe`, `join`, `create_dataframe`, `query`, `overwrite_columns`, `unfold_string_values`, `add_dynamic_column`, `stack_columns`, `is_empty`, `count_rows`, `select_columns`, `show_dataframe`):** These methods mirror the `DataProcessInterface` and simply delegate the call to the instantiated `_data_process` object.
+
 ```python
 
 from data_framework.modules.code.lazy_class_property import LazyClassProperty
@@ -2662,6 +2779,16 @@ class CoreDataProcess(object):
 
 
 #### src/data_framework/modules/data_process/helpers/athena.py
+#### `athena.py`
+**Purpose:**
+This script provides a dedicated client for interacting with AWS Athena. It encapsulates the logic required to execute SQL queries, monitor their execution status, and retrieve the results, typically as Pandas DataFrames.
+
+**Key parts:**
+- **`AthenaClient` class:** Manages interactions with AWS Athena.
+- **`__init__(self)`:** Initializes the boto3 Athena client, storage access (`Storage`), and determines the S3 output path for query results based on configuration.
+- **`execute_query(self, query: str, read_output: bool = True)`:** Submits a query to Athena, waits for it to complete using `wait_for_query_to_complete`, and optionally reads the results using `get_query_results`. Handles potential errors.
+- **`wait_for_query_to_complete(self, query_execution_id: str)`:** Polls Athena to check the status of a running query execution. Returns the S3 output location upon success or raises an `AthenaError` on failure/cancellation.
+- **`get_query_results(self, output_location: str)`:** Reads the query result CSV file from the specified S3 location using the `Storage` module and parses it into a Pandas DataFrame.
 ```python
 
 from data_framework.modules.config.core import config
@@ -2728,6 +2855,19 @@ class AthenaClient:
 ```
 
 #### src/data_framework/modules/data_process/helpers/cast.py
+#### `cast.py`
+**Purpose:**
+This script offers utility functions specifically designed for data type casting and formatting, primarily when preparing data for SQL-based operations or ensuring type compatibility between source and target systems.
+
+**Key parts:**
+- **`Cast` class:** Contains methods for casting logic.
+- **`__init__(self)`:** Initializes logger and `CoreCatalogue` for fetching table schemas.
+- **`cast_columns(self, column_name: str, column_type: str)`:** Generates a SQL `CAST` or `FROM_JSON` expression string for a given column name and target type, handling various SQL types including complex ones like STRUCT/ARRAY and BOOLEAN variations.
+- **`build_datacast_query(self, source_columns: List[str], table_target: DatabaseTable, view_name: str = 'data_to_cast')`:** Constructs a full SQL `SELECT` query that applies the `cast_columns` logic to each column in a list, based on the target table's schema obtained from the `CoreCatalogue`. Used for type casting entire datasets. Raises `CastQueryError` on failure.
+- **`get_query_to_insert_dataframe(self, dataframe: DataFrame, table_config: DatabaseTable)`:** Generates a SQL `INSERT INTO ... VALUES ...` query string from a Pandas DataFrame. It aligns DataFrame columns with the target table schema, formats each value correctly using `cast_df_row`, and constructs the multi-row `VALUES` clause. Raises `CastQueryError` on failure.
+- **`cast_df_row(self, row: Series, column_types: Dict[str, str])`:** Formats a single row (Pandas Series) into a SQL `VALUES` tuple string (e.g., `('value1', 123, NULL)`), applying `cast_df_value` to each cell based on the target column type.
+- **`cast_df_value(self, value: Any, _type: str)`:** Formats an individual Python/Pandas value into its SQL string representation (e.g., handling NULLs, quoting strings, formatting dates/timestamps).
+
 ```python
 
 """
@@ -2836,6 +2976,25 @@ class Cast:
 
 
 #### src/data_framework/modules/data_process/integrations/pandas/pandas_data_process.py
+#### `pandas_data_process.py`
+**Purpose:**
+This script provides the concrete implementation of the `DataProcessInterface` using the Pandas library. It primarily interacts with data via AWS Athena for reading and querying, performing transformations directly using Pandas functions where possible.
+
+**Key parts:**
+- **`PandasDataProcess` class:** Implements the `DataProcessInterface`.
+- **`__init__(self)`:** Initializes the `AthenaClient` helper.
+- **`read_table(self, database: str, table: str, ...)`:** Constructs and executes a `SELECT` query via `AthenaClient` to read data into a Pandas DataFrame.
+- **`insert_dataframe(self, dataframe: DataFrame, ...)`:** Uses the `Cast` helper to generate an `INSERT` SQL query from the Pandas DataFrame and executes it via `AthenaClient`.
+- **`join(self, df_1: DataFrame, df_2: DataFrame, ...)`:** Performs DataFrame joins using the native `pandas.merge` function. Includes validation for join type and column matching.
+- **`create_dataframe(self, data: Any, ...)`:** Creates a Pandas DataFrame from input data (e.g., a list of dictionaries) using `pd.DataFrame`. Schema support is noted as not implemented.
+- **`query(self, sql: str)`:** Executes an arbitrary SQL query using `AthenaClient` and returns the result as a Pandas DataFrame.
+- **`overwrite_columns(self, dataframe: DataFrame, ...)`:** Implements column overwriting logic using Pandas DataFrame operations (`fillna`, `drop`).
+- **`stack_columns(self, dataframe: DataFrame, ...)`:** Implements column stacking (unpivoting) using `pandas.melt`. Includes validation for target column count.
+- **`is_empty(self, dataframe: DataFrame)`:** Checks if a DataFrame is empty using `dataframe.empty`.
+- **`count_rows(self, dataframe: DataFrame)`:** Counts rows using `len(dataframe)`.
+- **`select_columns(self, dataframe: DataFrame, ...)`:** Selects specific columns using Pandas DataFrame indexing.
+- **`show_dataframe(self, dataframe: DataFrame)`:** Prints the DataFrame content to the log using `logger.info` and Pandas display options.
+- **`NotImplementedError`:** Raised for methods (`merge`, `datacast`, `delete_from_table`, `unfold_string_values`, `add_dynamic_column`) that are not currently supported by this Pandas/Athena implementation.
 ```python
 
 from data_framework.modules.data_process.interface_data_process import (
@@ -3035,6 +3194,19 @@ class PandasDataProcess(DataProcessInterface):
 
 
 #### src/data_framework/modules/data_process/integrations/spark/dynamic_config.py
+#### `src/data_framework/modules/data_process/integrations/spark/dynamic_config.py`
+**Purpose:**
+This script provides helper methods to dynamically generate recommended Apache Spark configuration settings. It aims to optimize Spark jobs based on input parameters like dataset size, job type, and optimization goals (cost vs. throughput), with specific adjustments for AWS EMR Serverless resource constraints.
+
+**Key parts:**
+- **`DynamicConfig` class:** Container for static methods related to configuration generation.
+- **`determine_cores(cls, dataset_size_gb: float)`:** Suggests the number of executor cores based on dataset size tiers.
+- **`determine_driver_settings(cls, dataset_size_gb: float, ...)`:** Suggests driver memory and cores based on dataset size and maximum executor memory.
+- **`determine_disk_size(cls, dataset_size_gb: float)`:** Recommends EMR Serverless disk size based on dataset size, clamped between 20GB and 200GB.
+- **`determine_memory_overhead_factor(cls, dataset_size_gb: float)`:** Suggests a memory overhead factor based on dataset size tiers.
+- **`adjust_resources_to_emr_serverless_constraints(cls, cpu: int, memory_gb: int)`:** Adjusts requested CPU and memory values to align with the specific valid combinations allowed by EMR Serverless (e.g., CPU/memory ratios and increments).
+- **`recommend_spark_config(cls, dataset_size_gb: float, ...)`:** The main method that orchestrates the others. It takes dataset size, job type, optimization goal, average file size, maximum executors/memory, and optional EMR application ID/instance count to generate a dictionary of recommended Spark configuration properties (e.g., `spark.executor.memory`, `spark.driver.cores`, `spark.dynamicAllocation.maxExecutors`, `spark.emr-serverless.executor.disk`). It includes commented-out sections for potential future enhancements like Iceberg-specific tuning or direct EMR Serverless API integration.
+
 ```python
 
 import json
@@ -3294,6 +3466,38 @@ class DynamicConfig:
 ```
 
 #### src/data_framework/modules/data_process/integrations/spark/spark_data_process.py
+**Key parts:**
+- **`SparkDataProcess` class:** Implements the `DataProcessInterface` for Spark/Iceberg.
+- **`__init__(self)`:**
+    - Initializes SparkConf with base settings (AppName, S3 connections, KryoSerializer, Iceberg extensions, Glue Catalog integration, Hive support, dynamic partition overwrite).
+    - Loads additional Spark configurations from the framework's config module (`json_config.spark_configuration.config`).
+    - Creates the `SparkSession` using the combined configuration.
+    - Initializes `CoreCatalogue`, `Storage`, and `CoreMonitoring`.
+    - Raises `SparkConfigurationError` if setup fails.
+- **`_build_complete_table_name(self, database: str, table: str)`:** Helper to construct the full Iceberg table identifier using the `iceberg_catalog`.
+- **`_track_table_metric(self, table_config: DatabaseTable, data_frame: DataFrame = None)`:** Sends table metrics (read record count or Iceberg snapshot summary metrics like added/deleted records/size) to `CoreMonitoring`. Uses a mapping (`__iceberg_snapshot_metrics_map`) for Iceberg metrics.
+- **`_execute_query(self, query: str)`:** Executes a Spark SQL query with a built-in retry mechanism (up to 3 attempts with random sleep) specifically for handling common Iceberg commit exceptions (`ConcurrentModificationException`, etc.).
+- **`merge(self, dataframe: DataFrame, ...)`:** Implements Iceberg `MERGE INTO` operation. Selects relevant columns, creates a temp view, builds and executes the `MERGE` SQL based on primary keys and an optional custom strategy. Tracks metrics post-operation. Sets Spark job group for monitoring.
+- **`insert_overwrite(self, dataframe: Any, ...)`:** Implements an overwrite operation using `dataframe.write.format("iceberg").mode('overwrite').save(...)`. Selects columns and tracks metrics. Sets Spark job group.
+- **`datacast(self, table_source: DatabaseTable, table_target: DatabaseTable)`:** Handles reading data from a source (often raw layer), applying transformations, and casting data types according to the `table_target` configuration. Supports different `CastingStrategy` (ONE_BY_ONE, DYNAMIC) and file formats (JSON, CSV, Parquet). Uses `_read_raw_file` or `_read_raw_json_file`, applies transformations via `utils.apply_transformations`, optionally fixes incompatible characters, and uses `Cast().build_datacast_query` for ONE_BY_ONE casting. Tracks read metrics.
+- **`_read_raw_file(self, ...)`:** Reads raw data (CSV/Parquet) using `spark.read`, applying configurations from the framework config and handling schema inference or application. Supports delta vs full execution modes.
+- **`_read_raw_json_file(self, ...)`:** Reads and parses JSON files (potentially multiple) from storage, creates a Spark DataFrame, optionally converting all fields to string based on `CastingStrategy`.
+- **`read_table(self, database: str, table: str, ...)`:** Reads an Iceberg table using a `SELECT` query constructed via `_build_complete_table_name` and executed by `_execute_query`.
+- **`delete_from_table(self, table_config: DatabaseTable, _filter: str)`:** Executes an Iceberg `DELETE FROM` query via `_execute_query`.
+- **`insert_dataframe(self, dataframe: DataFrame, ...)`:** Appends a DataFrame to an Iceberg table using `dataframe.writeTo(table_name).append()`. Includes retry logic for Iceberg exceptions. Selects columns first using `_select_table_columns`.
+- **`_select_table_columns(self, dataframe: DataFrame, ...)`:** Selects and de-duplicates columns from a DataFrame based on the target table's schema obtained from `CoreCatalogue`.
+- **`join(self, df_1: DataFrame, df_2: DataFrame, ...)`:** Performs Spark DataFrame joins. Handles aliasing, renaming conflicting columns (except join keys), and supports different join keys (`left_on`, `right_on`). Includes validation.
+- **`create_dataframe(self, data: Any, schema: str = None)`:** Creates a Spark DataFrame using `spark.createDataFrame`.
+- **`query(self, sql: str)`:** Executes an arbitrary SQL query using `_execute_query`.
+- **`overwrite_columns(self, dataframe: DataFrame, ...)`:** Overwrites specified columns based on values from corresponding custom/default suffixed columns using Spark's `withColumn` and `when/otherwise`.
+- **`unfold_string_values(self, dataframe: DataFrame, ...)`:** Extracts unique values from a string column containing delimited values using Spark SQL functions (`explode`, `split`).
+- **`add_dynamic_column(self, dataframe: DataFrame, ...)`:** Adds a new column whose value is dynamically determined based on the value in a `reference_column` and mapped against `available_columns` using Spark's `when/otherwise`.
+- **`stack_columns(self, dataframe: DataFrame, ...)`:** Unpivots specified `source_columns` into two `target_columns` using Spark SQL's `stack` expression. Includes validation.
+- **`is_empty(self, dataframe: DataFrame)`:** Checks if a Spark DataFrame is empty using `dataframe.isEmpty()`.
+- **`count_rows(self, dataframe: DataFrame)`:** Counts rows using `dataframe.count()`.
+- **`select_columns(self, dataframe: DataFrame, ...)`:** Selects columns using `dataframe.select()`.
+- **`show_dataframe(self, dataframe: DataFrame)`:** Displays DataFrame content using `dataframe.show(truncate=False)`.
+
 ```python
 
 from data_framework.modules.data_process.interface_data_process import (
@@ -3855,6 +4059,19 @@ class SparkDataProcess(DataProcessInterface):
 
 
 #### src/data_framework/modules/data_process/integrations/spark/transformations/parse_dates.py
+#### `src/data_framework/modules/data_process/integrations/spark/transformations/parse_dates.py`
+**Purpose:**
+This script provides a reusable transformation function specifically for parsing date or timestamp strings within a Spark DataFrame. It attempts to convert specified columns from various potential source formats into a single target format.
+
+**Key parts:**
+- **`parse_dates(df: DataFrame, transformation: Transformation)` function:**
+    - Takes a Spark DataFrame and a `Transformation` configuration object as input.
+    - Iterates through the columns specified in `transformation.columns`.
+    - For each column, iterates through potential `transformation.source_format` strings.
+    - Uses nested Spark SQL `when` conditions with `to_date` and `date_format` functions. It attempts to parse the column using a `source_format`; if successful (`isNotNull`), it formats the result to the `transformation.target_format`. If parsing fails for a format, it keeps the original column value and tries the next format.
+    - Returns the modified DataFrame.
+    - Raises `ValueError` if a specified column is not found in the DataFrame.
+
 ```python
 
 from data_framework.modules.config.model.flows import Transformation
@@ -3885,6 +4102,18 @@ def parse_dates(df: DataFrame, transformation: Transformation) -> DataFrame:
 ```
 
 #### src/data_framework/modules/data_process/integrations/spark/utils.py
+#### `src/data_framework/modules/data_process/integrations/spark/utils.py`
+**Purpose:**
+This script contains various utility functions specifically designed to support the Spark integration (`SparkDataProcess`). These helpers handle tasks like schema manipulation, type mapping, dynamic transformation execution, string cleaning for compatibility, and parsing complex JSON structures.
+
+**Key parts:**
+- **`convert_schema_to_strings(columns: List[str])`:** Creates a Spark `StructType` where all specified columns are defined as `StringType`. Useful for reading raw data before explicit casting.
+- **`map_to_spark_type(db_type: str)`:** Maps common database type strings (like 'varchar', 'int', 'timestamp') to their corresponding PySpark `DataType` objects (e.g., `StringType()`, `IntegerType()`, `TimestampType()`). Defaults to `StringType`.
+- **`apply_transformations(df: DataFrame, transformations: List[Transformation], ...)`:** Dynamically imports and applies transformation functions based on the `transformation.type` enum value. It looks for corresponding modules within the `...spark.transformations` package. Raises specific errors for missing or failed transformations.
+- **`fix_column_incompatible_characters(json)`:** A helper function (intended for use within a UDF) that uses regular expressions to clean up potentially problematic characters or formatting in JSON strings, especially within keys, to make them compatible with Spark processing (e.g., converting `key=value` to `"key": "value"`, removing `@`, ensuring double quotes).
+- **`fix_incompatible_characters(df_origin: DataFrame, table_target: DatabaseTable)`:** Applies the `fix_column_incompatible_characters` logic via a Spark UDF to specified struct columns in a DataFrame. It also renames columns by removing non-alphanumeric characters (`\W`) to ensure compatibility, based on the target schema definition.
+- **`parse_json(files: List[BytesIO])`:** Reads JSON data line-by-line from a list of file-like objects (BytesIO). It navigates nested structures based on `json_specs.levels`, handles dictionary-formatted data (`JSONFormat.DICTIONARY`), extracts a date field for partitioning, and returns a flattened list of dictionaries ready for DataFrame creation.
+
 ```python
 
 from data_framework.modules.config.model.flows import (
@@ -4026,6 +4255,17 @@ def parse_json(files: List[BytesIO]) -> List[dict]:
 ```
 
 #### src/data_framework/modules/data_process/interface_data_process.py
+#### `src/data_framework/modules/data_process/interface_data_process.py`
+**Purpose:**
+This script defines the core contract for all data processing implementations within the framework. It establishes a standard set of methods that any data processing engine (like Spark or Pandas) must implement, ensuring consistency and interchangeability. It also defines standard response structures.
+
+**Key parts:**
+- **`ReadResponse` dataclass:** Standard structure for operations returning data. Contains `success` (bool), `error` (str), and `data` (Any, typically a DataFrame).
+- **`WriteResponse` dataclass:** Standard structure for operations performing writes or actions. Contains `success` (bool) and `error` (str).
+- **`DataProcessInterface(ABC)` class:**
+    - Abstract Base Class defining the required methods for data processing.
+    - **Abstract Methods:** Defines the signature for all common operations like `merge`, `insert_overwrite`, `datacast`, `read_table`, `delete_from_table`, `insert_dataframe`, `join`, `create_dataframe`, `query`, `overwrite_columns`, `unfold_string_values`, `add_dynamic_column`, `stack_columns`, `is_empty`, `count_rows`, `select_columns`, `show_dataframe`. Each method specifies expected parameters (often including DataFrames represented as `Any` and `DatabaseTable` configuration objects) and the expected return type (`ReadResponse` or `WriteResponse`). Implementations must provide concrete logic for these methods.
+
 ```python
 
 from abc import ABC, abstractmethod
@@ -4154,6 +4394,27 @@ class DataProcessInterface(ABC):
 
 
 #### src/data_framework/modules/dataflow/interface_dataflow.py
+#### `src/data_framework/modules/dataflow/interface_dataflow.py`
+**Purpose:**
+This script defines the abstract base class (`DataFlowInterface`) that serves as the blueprint for all specific dataflow process implementations (e.g., LandingDataFlow, StagingDataFlow). It ensures a consistent structure and provides shared initialization logic, access to core framework components, helper methods for common tasks, and standardized ways to report results and metrics.
+
+**Key parts:**
+- **Dataclasses (`DataQualityTable`, `DataQuality`, `OutputResponse`, `PayloadResponse`):** Define standard structures for reporting data quality check targets, individual output results, and the overall payload summarizing the process execution outcome (success, next stage trigger, file info, DQ info, output results, notifications). `PayloadResponse` includes a method `get_failed_outputs`.
+- **`DataFlowInterface(ABC)` class:**
+    - **Properties (`config`, `logger`, `data_process`, `quality_controls`, `notifications`, `source_tables`, `target_tables`, `payload_response`, etc.):** Provide convenient access to the framework's configuration and core service modules, initialized in the constructor.
+    - **`__init__(self)`:**
+        - Initializes core framework components (`config`, `logger`, `CoreDataProcess`, `CoreQualityControls`, `CoreNotifications`, `CoreMonitoring`).
+        - Initializes the `PayloadResponse` object.
+        - Initializes an SSM client (`boto3.client('ssm')`).
+        - Tracks the start time (`time.time()`) and logs a `DATAFLOW_START_EVENT` metric if it's the first process in the dataflow.
+        - Handles potential initialization errors (`DataflowInitializationError`).
+    - **`process(self)` (Abstract Method):** Placeholder for the main logic of a specific dataflow implementation. Must be overridden by subclasses.
+    - **`vars(self, name: str)`:** Retrieves a variable from the current process configuration's `vars` section.
+    - **`read_table_with_casting(self, ...)`:** Helper method to read data from a source table and apply casting logic using `CoreDataProcess.datacast`, simplifying a common pattern. Logs read information based on `ExecutionMode`.
+    - **`read_table(self, ...)`:** Helper method to read data from a source table using `CoreDataProcess.read_table`, applying filters based on `ExecutionMode`. Logs read information.
+    - **`write(self, df: Any, output_table_key: str)`:** Helper method to write a DataFrame to a target table using `CoreDataProcess.merge`. Logs success message. *(Note: Hardcoded use of merge, potential TODO noted in code regarding primary key retrieval).*
+    - **`save_monitorization(self)`:** Calculates process duration and tracks standard end-of-process metrics (`PROCESS_END_EVENT`, `PROCESS_DURATION`) using `CoreMonitoring`. Includes commented-out logic for a potential `DATAFLOW_END_EVENT`.
+    - **`save_payload_response(self)`:** Compiles the final `PayloadResponse` (including identified data quality tables and notifications to send), converts it to JSON, and attempts to save it to AWS SSM Parameter Store under a structured name (`/dataflow/{project_id}/{dataflow}-{process}/result`). Handles potential SSM or payload generation errors (`SSMError`, `PayloadResponseError`).
 ```python
 
 from abc import ABC
@@ -4425,7 +4686,46 @@ class DataFlowInterface(ABC):
 
 
 ### DF Modules: Exception
+### DF Modules: exception
+#### Summary
+This module defines a comprehensive set of custom exception classes used throughout the Data Framework. It establishes a clear error hierarchy, starting with a base `DataFrameworkError`, and provides specific exceptions for errors related to configuration, AWS services (S3, Glue, Athena, etc.), data catalogue operations, data processing tasks, dataflow execution, storage operations, validation rules, notifications, and specific processing steps like landing and output generation. This structured approach facilitates specific error handling and provides informative error messages for debugging.
+
+#### What the "exception" module does (big picture)
+- **Goal:** To create a standardized and informative system for error handling and reporting within the Data Framework.
+- **Why it matters:** Using custom exceptions instead of generic ones allows for more precise error identification and handling (e.g., distinguishing a configuration error from a data processing error). It leads to clearer logs, easier debugging, and more robust application flow control by allowing different types of errors to be caught and managed specifically.
+- **How:** It defines a base exception class, `DataFrameworkError` (in `generic_exceptions.py`), which includes a helpful `format_exception` method to generate detailed error reports including tracebacks. Numerous specific exception classes are then defined across multiple files, each inheriting directly or indirectly from `DataFrameworkError`. These specific exceptions correspond to different framework modules (e.g., `config_exceptions.py`, `storage_exceptions.py`) or specific error conditions (e.g., `FileNotFoundError`, `ReadDataError`, `RuleComputeError`). The `__init__` methods of these exceptions typically accept context-specific arguments (like filenames, table names, error details) to generate tailored and informative error messages.
+
+#### exception Module High-Level: Script by Script
+
+| Script                        | What it is              | What it does |
+| :---------------------------- | :---------------------- | :----------- |
+| `aws_exceptions.py`           | Exception Definitions   | Defines exceptions specific to interactions with AWS services (STS, Glue, Athena, SSM, S3). |
+| `catalogue_exceptions.py`     | Exception Definitions   | Defines exceptions related to data catalogue operations (creating partitions, getting schemas). |
+| `config_exceptions.py`        | Exception Definitions   | Defines exceptions related to loading, parsing, and accessing framework configuration. |
+| `data_process_exceptions.py`  | Exception Definitions   | Defines exceptions related to data processing tasks (transformations, casting, reading/writing data, Spark issues). |
+| `dataflow_exceptions.py`      | Exception Definitions   | Defines exceptions related to the initialization and execution of dataflow processes. |
+| `generic_exceptions.py`       | Base Exception Definition | Defines the base `DataFrameworkError` class for all framework exceptions and includes a generic logger error. |
+| `landing_exceptions.py`       | Exception Definitions   | Defines exceptions specific to the landing dataflow process (file processing, reading, date regex issues, validation failures). |
+| `notification_exceptions.py`  | Exception Definitions   | Defines exceptions related to sending and configuring notifications (not found, duplication, limits exceeded, send errors). |
+| `output_exceptions.py`        | Exception Definitions   | Defines exceptions specific to the output generation process (general errors, specific generation failures, no data found). |
+| `storage_exceptions.py`       | Exception Definitions   | Defines exceptions related to data storage operations (generic errors, read failures, write failures). |
+| `validation_exceptions.py`    | Exception Definitions   | Defines exceptions related to data quality and validation rules (general errors, failed rules, computation errors, configuration issues). |
+
+---
 #### src/data_framework/modules/exception/aws_exceptions.py
+#### `src/data_framework/modules/exception/aws_exceptions.py`
+**Purpose:**
+This script defines custom exception classes for errors encountered during interactions with various AWS services used by the framework.
+
+**Key parts:**
+- **`STSError(DataFrameworkError)`:** Error related to AWS Security Token Service (STS).
+- **`GlueError(DataFrameworkError)`:** Error related to AWS Glue (e.g., catalog operations).
+- **`AthenaError(DataFrameworkError)`:** Error related to AWS Athena (e.g., query execution).
+- **`SSMError(DataFrameworkError)`:** Error related to AWS Systems Manager Parameter Store (SSM).
+- **`S3Error(DataFrameworkError)`:** Error related to AWS Simple Storage Service (S3).
+
+---
+
 ```python
 
 """Definition of exceptions for AWS services"""
@@ -4471,6 +4771,17 @@ class S3Error(DataFrameworkError):
 ```
 
 #### src/data_framework/modules/exception/catalogue_exceptions.py
+#### `src/data_framework/modules/exception/catalogue_exceptions.py`
+**Purpose:**
+This script defines custom exceptions specifically related to operations within the data catalogue module, such as interacting with table schemas and partitions (likely in AWS Glue).
+
+**Key parts:**
+- **`CreatePartitionError(DataFrameworkError)`:** Raised when creating a partition in a table fails. Includes database, table, partition field, and value in the message.
+- **`InvalidPartitionFieldError(DataFrameworkError)`:** Raised when a specified partition field does not exist in the target table's schema. Includes database, table, and partition field.
+- **`SchemaError(DataFrameworkError)`:** Raised when fetching or processing a table's schema fails. Includes database and table name.
+
+---
+
 ```python
 
 """Definition of exceptions for catalogue module"""
@@ -4519,6 +4830,23 @@ class SchemaError(DataFrameworkError):
 ```
 
 #### src/data_framework/modules/exception/config_exceptions.py
+#### `src/data_framework/modules/exception/config_exceptions.py`
+**Purpose:**
+This script defines a suite of custom exceptions related to errors encountered during the loading, parsing, or accessing of configuration files and parameters for the framework and specific dataflows.
+
+**Key parts:**
+- **`ConfigError(DataFrameworkError)`:** A base error for configuration issues, typically related to initialization.
+- **`ConfigFileNotFoundError(DataFrameworkError)`:** Raised when the main configuration file cannot be found at the specified path.
+- **`AccountNotFoundError(DataFrameworkError)`:** Raised when the target AWS Account ID is not defined in the configuration. Lists available IDs.
+- **`ParameterParseError(DataFrameworkError)`:** Raised when input command-line arguments cannot be parsed correctly.
+- **`ConfigParseError(DataFrameworkError)`:** Raised during config file parsing if a field cannot be converted to its expected type. Includes field name and expected type.
+- **`EmptyProcessConfigError(DataFrameworkError)`:** Raised if the configuration section for a specific process is unexpectedly empty.
+- **`ProcessNotFoundError(DataFrameworkError)`:** Raised when a requested process name isn't found in the configuration. Lists available processes.
+- **`TableKeyError(DataFrameworkError)`:** Raised when a specific table key (used for referencing table configurations) is not found. Lists available keys.
+- **`TableConfigNotFoundError(DataFrameworkError)`:** Raised when configuration details for a specific database and table combination cannot be located using table keys.
+
+---
+
 ```python
 
 """Definition of exceptions for config module"""
@@ -4610,6 +4938,23 @@ class TableConfigNotFoundError(DataFrameworkError):
 ```
 
 #### src/data_framework/modules/exception/data_process_exceptions.py
+#### `src/data_framework/modules/exception/data_process_exceptions.py`
+**Purpose:**
+This script defines custom exceptions related to errors occurring during data processing operations, such as applying transformations, casting data types, reading from or writing to tables, and Spark-specific issues.
+
+**Key parts:**
+- **`TransformationNotImplementedError(DataFrameworkError)`:** Raised if a specified transformation type is not recognized or implemented. Can list available transformations.
+- **`TransformationError(DataFrameworkError)`:** Raised when an implemented transformation fails during execution.
+- **`CastQueryError(DataFrameworkError)`:** Raised specifically when generating the SQL query for data casting fails.
+- **`CastDataError(DataFrameworkError)`:** Raised when the overall data casting operation between source and target tables fails. Includes table names and casting strategy.
+- **`ReadDataError(DataFrameworkError)`:** Raised when reading data (e.g., via a SQL query) fails. Includes the attempted query.
+- **`WriteDataError(DataFrameworkError)`:** Raised when writing data to a target table fails. Includes database and table name.
+- **`DeleteDataError(DataFrameworkError)`:** Raised when deleting data from a table fails. Includes database and table name.
+- **`DataProcessError(DataFrameworkError)`:** A more generic error for data transformation failures, allowing a custom message.
+- **`SparkConfigurationError(DataFrameworkError)`:** Raised specifically when setting up or configuring the Spark session fails.
+
+---
+
 ```python
 
 """Definition of exceptions for data process module"""
@@ -4698,6 +5043,16 @@ class SparkConfigurationError(DataFrameworkError):
 ```
 
 #### src/data_framework/modules/exception/dataflow_exceptions.py
+#### `src/data_framework/modules/exception/dataflow_exceptions.py`
+**Purpose:**
+This script defines custom exceptions related to the overall execution and initialization of dataflow processes defined by `DataFlowInterface`.
+
+**Key parts:**
+- **`DataflowInitializationError(DataFrameworkError)`:** Raised if the initialization (`__init__`) of a `DataFlowInterface` subclass fails.
+- **`PayloadResponseError(DataFrameworkError)`:** Raised if generating the final JSON payload response for the dataflow process fails.
+
+---
+
 ```python
 
 """Definition of exceptions for dataflow module"""
@@ -4722,6 +5077,18 @@ class PayloadResponseError(DataFrameworkError):
 ```
 
 #### src/data_framework/modules/exception/generic_exceptions.py
+#### `src/data_framework/modules/exception/generic_exceptions.py`
+**Purpose:**
+This script defines the foundational base exception class for the entire Data Framework and a generic exception for logger issues.
+
+**Key parts:**
+- **`DataFrameworkError(Exception)`:**
+    - The root base class for all custom exceptions defined within the framework. Inherits from Python's built-in `Exception`.
+    - **`format_exception(self) -> str`:** A method to provide a formatted string representation of the exception, including its type, message, and the full traceback. This is useful for detailed logging.
+- **`LoggerInitializationError(DataFrameworkError)`:** Raised specifically if the framework's logger fails to initialize correctly.
+
+---
+
 ```python
 
 """Definition of generic data framework exceptions"""
@@ -4749,6 +5116,19 @@ class LoggerInitializationError(DataFrameworkError):
 ```
 
 #### src/data_framework/modules/exception/landing_exceptions.py
+#### `src/data_framework/modules/exception/landing_exceptions.py`
+**Purpose:**
+This script defines custom exceptions specifically tailored to errors that can occur during the landing dataflow process (ingesting files into the Raw layer).
+
+**Key parts:**
+- **`FileProcessError(DataFrameworkError)`:** A general error raised when processing a specific file fails. Includes the file path.
+- **`FileReadError(DataFrameworkError)`:** Raised when reading the content of a file from storage fails. Includes the file path.
+- **`InvalidDateRegexError(DataFrameworkError)`:** Raised if the date pattern extracted from a filename does not match the configured regex. Includes filename and pattern.
+- **`InvalidRegexGroupError(DataFrameworkError)`:** Raised if the named groups (`year`, `month`, `day`) within the date regex are missing or incorrect. Includes the pattern.
+- **`InvalidFileError(DataFrameworkError)`:** Raised if a file fails the defined quality control checks during the landing process. Includes the file path.
+
+---
+
 ```python
 
 """Definition of exceptions for landing step"""
@@ -4804,6 +5184,20 @@ class InvalidFileError(DataFrameworkError):
 ```
 
 #### src/data_framework/modules/exception/notification_exceptions.py
+#### `src/data_framework/modules/exception/notification_exceptions.py`
+**Purpose:**
+This script defines custom exceptions related to the configuration and sending of notifications within the framework.
+
+**Key parts:**
+- **`NotificationNotFoundError(DataFrameworkError)`:** Raised when attempting to use or send a notification key that is not defined in the configuration. Can list available keys.
+- **`DuplicatedNotificationError(DataFrameworkError)`:** Raised if the user configuration defines a notification with a name that conflicts with a pre-defined framework notification. Lists the duplicated names.
+- **`NotificationError(DataFrameworkError)`:** A general error raised when sending a specific notification fails. Includes the notification name.
+- **`SubjectLimitExceededError(DataFrameworkError)`:** Raised if the generated subject line for a notification exceeds the maximum allowed length. Includes notification name and max length.
+- **`BodyLimitExceededError(DataFrameworkError)`:** Raised if the generated body content for a notification exceeds the maximum allowed length. Includes notification name and max length.
+- **`NotificationLimitExceededError(DataFrameworkError)`:** Raised if the total number of notifications queued to be sent exceeds a predefined limit. Includes the limit number.
+
+---
+
 ```python
 
 """Definition of exceptions for notification module"""
@@ -4872,6 +5266,17 @@ class NotificationLimitExceededError(DataFrameworkError):
 ```
 
 #### src/data_framework/modules/exception/output_exceptions.py
+#### `src/data_framework/modules/exception/output_exceptions.py`
+**Purpose:**
+This script defines custom exceptions specifically for errors occurring during the output generation dataflow process.
+
+**Key parts:**
+- **`OutputError(DataFrameworkError)`:** A general error raised when one or more output files fail to generate. Lists the names of the failed outputs.
+- **`OutputGenerationError(DataFrameworkError)`:** Raised when a specific output file generation fails. Includes the output name and the underlying error message.
+- **`NoOutputDataError(DataFrameworkError)`:** Raised when the data retrieval step for a specific output yields no data, preventing file generation. Includes the output name.
+
+---
+
 ```python
 
 """Definition of exceptions for output step"""
@@ -4912,6 +5317,17 @@ class NoOutputDataError(DataFrameworkError):
 ```
 
 #### src/data_framework/modules/exception/storage_exceptions.py
+#### `src/data_framework/modules/exception/storage_exceptions.py`
+**Purpose:**
+This script defines custom exceptions related to interactions with the underlying storage systems (like local storage or S3 via the Storage module).
+
+**Key parts:**
+- **`StorageError(DataFrameworkError)`:** A generic error for storage operations, taking a custom error message.
+- **`StorageReadError(DataFrameworkError)`:** Raised specifically when a read operation from storage fails. Includes the path being read.
+- **`StorageWriteError(DataFrameworkError)`:** Raised specifically when a write operation to storage fails. Includes the path being written to.
+
+---
+
 ```python
 
 """Definition of exceptions for storage module"""
@@ -4943,6 +5359,21 @@ class StorageWriteError(DataFrameworkError):
 ```
 
 #### src/data_framework/modules/exception/validation_exceptions.py
+#### `src/data_framework/modules/exception/validation_exceptions.py`
+**Purpose:**
+This script defines custom exceptions related to the data validation and quality control processes within the framework.
+
+**Key parts:**
+- **`QualityControlsError(DataFrameworkError)`:** A general error raised when data validation for a specific table fails. Includes the table name.
+- **`FailedRulesError(DataFrameworkError)`:** Raised when one or more quality rules could not be executed correctly (distinct from rules failing their checks). Includes the count of failed rules.
+- **`RuleComputeError(DataFrameworkError)`:** Raised when the computation logic for a specific rule fails during execution. Includes rule ID and type.
+- **`ValidationFunctionNotFoundError(DataFrameworkError)`:** Raised if a custom validation function specified in the configuration cannot be found in the designated parent module/class.
+- **`ParentNotConfiguredError(DataFrameworkError)`:** Raised if custom validation functions are attempted without first setting the parent module/class using `QualityControls().set_parent()`.
+- **`InvalidThresholdError(DataFrameworkError)`:** Raised if the threshold value defined for a validation rule is invalid (e.g., wrong type, outside expected range). Takes a specific error message.
+- **`InvalidAlgorithmError(DataFrameworkError)`:** Raised if the algorithm specified for a rule is not valid or recognized. Takes a specific error message.
+- **`InvalidRuleError(DataFrameworkError)`:** Raised if the definition or configuration of a validation rule itself is invalid. Takes a specific error message.
+- **`InvalidDataFrameError(DataFrameworkError)`:** Raised if the DataFrame provided for validation is invalid (e.g., missing expected columns). Takes a specific error message.
+
 ```python
 
 """Definition of exceptions for validation module"""
@@ -5022,7 +5453,44 @@ class InvalidDataFrameError(DataFrameworkError):
 
 ```
 
+### DF Modules: Monitoring
+### DF Modules: monitoring
+#### Summary
+This module provides the framework's monitoring capabilities. It defines a standard interface (`MonitoringInterface`) and data structures (`Metric`, `MetricNames`, `MetricUnits`) for tracking operational metrics. A core facade (`CoreMonitoring`) dynamically loads and delegates to specific implementations, with the initial implementation targeting AWS CloudWatch (`AWSCloudWatch`). This allows tracking of metrics related to dataflow processes, table operations (reads/writes), and computational resources, sending them to CloudWatch with standardized dimensions.
+
+#### What the "monitoring" module does (big picture)
+- **Goal:** To provide a consistent mechanism for capturing and reporting key operational metrics from Data Framework processes to a central monitoring system (initially AWS CloudWatch).
+- **Why it matters:** Enables observability into the performance, health, and resource usage of data pipelines built with the framework. Standardized metrics facilitate dashboard creation, alerting, and operational analysis.
+- **How:**
+    - It defines an abstract base class `MonitoringInterface` with methods (`track_metric`, `track_table_metric`, `track_process_metric`, `track_computation_metric`) that concrete monitoring backends must implement.
+    - It standardizes metric definitions using the `Metric` dataclass, the `MetricNames` enum (which also logically maps names to `MetricUnits`), and the `MetricUnits` enum.
+    - A facade class `CoreMonitoring` uses lazy loading (`LazyClassProperty`) to instantiate the appropriate `MonitoringInterface` implementation (currently hardcoded to `AWSCloudWatch`). Other framework components interact with `CoreMonitoring`.
+    - The `AWSCloudWatch` implementation formats the standard `Metric` objects into the structure required by the AWS CloudWatch `put_metric_data` API call. It defines a standard CloudWatch namespace (`DataFramework/Product`) and constructs dimensions based on framework configuration (`ProjectId`, `DataFlow`, `Process`) and environment variables (`EMR_SERVERLESS_JOB_ID`, `EMR_SERVERLESS_JOB_RUN_ID`). It uses `boto3` to interact with CloudWatch. *(Note: The final call to `put_metric_data` is currently commented out in the provided code).*
+
+#### monitoring Module High-Level: Script by Script
+
+| Script                                                             | What it is             | What it does |
+| :----------------------------------------------------------------- | :--------------------- | :----------- |
+| `core_monitoring.py`                                               | Core Logic/Facade      | Provides the main entry point for monitoring actions, dynamically loading and delegating metric tracking calls to the configured monitoring implementation. |
+| `integrations/aws_cloudwatch/aws_cloudwatch_monitoring.py`         | Integration (CloudWatch) | Implements the `MonitoringInterface` to send formatted metrics to AWS CloudWatch using boto3, defining specific namespaces and dimensions. |
+| `interface_monitoring.py`                                          | Interface Definition   | Defines the abstract base class (`MonitoringInterface`), metric data structures (`Metric`, `MetricNames`, `MetricUnits`), and standard metric names/units used across the framework. |
+
+---
 #### src/data_framework/modules/monitoring/core_monitoring.py
+#### `src/data_framework/modules/monitoring/core_monitoring.py`
+**Purpose:**
+This script acts as the central facade for the monitoring module. It provides class methods that other parts of the framework can use to track metrics without needing to know the specifics of the underlying monitoring system implementation. It dynamically loads the configured monitoring backend.
+
+**Key parts:**
+- **`CoreMonitoring` class:** The main facade class.
+- **`_monitoring` (LazyClassProperty):** Lazily initializes and returns an instance of the concrete `MonitoringInterface` implementation. Currently hardcoded to load `AWSCloudWatch`.
+- **`track_metric(cls, metric: Metric)`:** Delegates the tracking of a generic `Metric` object to the loaded monitoring implementation.
+- **`track_table_metric(cls, name: MetricNames, ...)`:** Convenience method to track metrics specifically related to table operations (e.g., reads, writes). Delegates to the implementation.
+- **`track_process_metric(cls, name: MetricNames, ...)`:** Convenience method to track metrics related to dataflow process execution (e.g., start/end events, duration). Delegates to the implementation.
+- **`track_computation_metric(cls, name: MetricNames, ...)`:** Convenience method to track metrics related to computational aspects (likely within Spark). Delegates to the implementation.
+
+---
+
 ```python
 
 from data_framework.modules.code.lazy_class_property import LazyClassProperty
@@ -5082,6 +5550,23 @@ class CoreMonitoring:
 ```
 
 #### src/data_framework/modules/monitoring/integrations/aws_cloudwatch/aws_cloudwatch_monitoring.py
+#### `src/data_framework/modules/monitoring/integrations/aws_cloudwatch/aws_cloudwatch_monitoring.py`
+**Purpose:**
+This script implements the `MonitoringInterface` to send metrics specifically to AWS CloudWatch. It handles the initialization of the CloudWatch client, defines the namespace and dimensions for the metrics, and formats the metric data according to CloudWatch API requirements.
+
+**Key parts:**
+- **`InternalMetric(Metric)` dataclass:** An internal extension of the base `Metric` dataclass with a `parse` property to format the metric data into the dictionary structure required by CloudWatch's `put_metric_data`.
+- **`AWSCloudWatch(MonitoringInterface)` class:** Implements the monitoring interface for CloudWatch.
+    - **`__namespace` (static attribute):** Defines the CloudWatch namespace (`DataFramework/Product`) where metrics will be sent.
+    - **Dimension Attributes (`__computation_dimensions`, `__process_dimensions`, `__table_dimensions`):** Define lists of standard dimensions (like `ExecutionId`, `ProjectId`, `DataFlow`, `Process`, `JobId`) to be included with different types of metrics. Values are pulled from `config()` and environment variables.
+    - **`__init__(self)`:** Initializes the `boto3` CloudWatch client, configuring the region and endpoint URL.
+    - **`track_metric(self, metric: InternalMetric)`:** The core method that takes a formatted `InternalMetric` and sends it to CloudWatch using `self._client.put_metric_data`. *(Note: This API call is commented out in the provided code).*
+    - **`track_table_metric(self, name: MetricNames, ...)`:** Constructs an `InternalMetric` object for table-related metrics, adding `Database` and `Table` dimensions to the standard `__table_dimensions`, and calls `track_metric`.
+    - **`track_process_metric(self, name: MetricNames, ...)`:** Constructs an `InternalMetric` for process-related metrics, adding a `Success` dimension if provided, and calls `track_metric`.
+    - **`track_computation_metric(self, name: MetricNames, ...)`:** Constructs an `InternalMetric` for computation-related metrics using `__computation_dimensions` and calls `track_metric`.
+
+---
+
 ```python
 
 from data_framework.modules.monitoring.interface_monitoring import (
@@ -5246,6 +5731,19 @@ class AWSCloudWatch(MonitoringInterface):
 ```
 
 #### src/data_framework/modules/monitoring/interface_monitoring.py
+#### `src/data_framework/modules/monitoring/interface_monitoring.py`
+**Purpose:**
+This script defines the abstract interface and common data structures for monitoring within the framework. It ensures that all monitoring implementations adhere to a consistent contract and use standardized metric definitions.
+
+**Key parts:**
+- **`MetricUnits(Enum)`:** Defines standard units for metrics (Seconds, Megabytes, Count, Percent, None).
+- **`MetricNames(Enum)`:** Defines standard names for metrics used across the framework (e.g., `TABLE_READ_RECORDS`, `PROCESS_DURATION`, `DATAFLOW_START_EVENT`).
+    - **`unit` property:** Contains logic to automatically determine the correct `MetricUnits` based on the `MetricNames` enum value.
+- **`Metric` dataclass:** Defines the standard structure for a metric, including its creation timestamp (`_created_at`), `name` (MetricNames), `value` (float), and `dimensions` (List of Dicts).
+- **`MonitoringInterface(ABC)` class:**
+    - Abstract Base Class defining the methods required for any monitoring implementation.
+    - **Abstract Methods:** `track_metric`, `track_table_metric`, `track_process_metric`, `track_computation_metric`. These methods define the signatures for tracking different categories of metrics, ensuring implementing classes (like `AWSCloudWatch`) provide the necessary functionality.
+
 ```python
 
 from abc import ABC, abstractmethod
@@ -5368,7 +5866,7 @@ class MonitoringInterface(ABC):
 
 ```
 
-
+### DF Modules: Notifications
 #### src/data_framework/modules/notification/core_notifications.py
 ```python
 
@@ -5597,7 +6095,30 @@ class Notifications(InterfaceNotifications):
 
 ```
 
+### DF Modules: Storage
+### DF Modules: storage
+#### Summary
+This module provides an abstraction layer for interacting with different storage systems. It defines a common interface (`CoreStorageInterface`) for file and object operations like reading, writing, and listing files within predefined logical layers (Landing, Raw, Staging, etc.). It includes concrete implementations for interacting with the local filesystem (`LocalStorage`) and AWS S3 (`S3Storage`).
 
+#### What the "storage" module does (big picture)
+- **Goal:** To offer a standardized way to perform read, write, and list operations on data files/objects, irrespective of the underlying storage technology (local disk or cloud storage like S3).
+- **Why it matters:** It decouples the rest of the framework from the specific storage implementation details. This allows dataflows and processing logic to remain agnostic to where the data physically resides, making the framework more flexible and adaptable (e.g., switching between local development and cloud deployment). It also enforces consistent path structures using predefined `Layer` and `Database` concepts.
+- **How:**
+    - It defines an abstract base class `CoreStorageInterface` specifying the essential methods (`read`, `write`, `write_to_path`, `list_files`, `raw_layer_path`, `base_layer_path`) and standard response dataclasses (`ReadResponse`, `WriteResponse`, `ListResponse`, `PathResponse`).
+    - It defines enums `Layer` and `Database` to represent logical data zones and schemas, used for constructing paths.
+    - Concrete classes `LocalStorage` and `S3Storage` implement the `CoreStorageInterface`.
+    - `LocalStorage` uses Python's standard `os` module functions (`os.path.join`, `os.makedirs`, `open`, `os.scandir`) to interact with the local filesystem. It constructs paths based on the configured `bucket_prefix` and layer name.
+    - `S3Storage` uses the `boto3` library to interact with AWS S3 (`s3.get_object`, `s3.put_object`, `s3.get_paginator('list_objects_v2')`). It constructs S3 bucket names and object keys based on configuration and the logical layer/database/table/partition structure.
+
+#### storage Module High-Level: Script by Script
+
+| Script                                                        | What it is             | What it does |
+| :------------------------------------------------------------ | :--------------------- | :----------- |
+| `integrations/local_storage.py`                               | Storage Implementation | Implements the `CoreStorageInterface` for interacting with the local filesystem using standard Python `os` functions. |
+| `integrations/s3_storage.py`                                  | Storage Implementation | Implements the `CoreStorageInterface` for interacting with AWS S3 using the `boto3` library. |
+| `interface_storage.py`                                        | Interface Definition   | Defines the abstract base class (`CoreStorageInterface`), standard response types, and enums (`Layer`, `Database`) for storage operations. |
+
+---
 #### src/data_framework/modules/storage/core_storage.py
 ```python
 
@@ -5677,6 +6198,24 @@ class Storage:
 ```
 
 #### src/data_framework/modules/storage/integrations/local_storage.py
+#### `src/data_framework/modules/storage/integrations/local_storage.py`
+**Purpose:**
+This script provides a concrete implementation of the `CoreStorageInterface` that interacts with the local filesystem. It allows the framework to read, write, and list files on the machine where the code is running, simulating a layered storage structure using local directories.
+
+**Key parts:**
+- **`LocalStorage(CoreStorageInterface)` class:** Implements the storage interface.
+    - **`__init__(self)`:** Initializes the logger.
+    - **`read(self, layer: Layer, key_path: str, ...)`:** Reads a file from the local filesystem. Constructs the full path using `_build_folder_name` and `os.path.join`. Returns `ReadResponse` with file content as bytes if found, or an error response if not.
+    - **`_build_folder_name(self, layer: Layer)`:** Creates the base folder name for a layer (e.g., `prefix-landing`, `prefix-raw`) based on configuration.
+    - **`_build_file_path(self, database: Database, ...)`:** Constructs the relative file path within a layer's folder, including database, table, optional partition structure (`key=value/`), and filename.
+    - **`write(self, layer: Layer, database: Database, ...)`:** Writes data (bytes) to a file in the local filesystem. Uses `_build_folder_name` and `_build_file_path` to determine the full path, creates necessary parent directories (`os.makedirs`), and writes the file. Returns `WriteResponse`.
+    - **`write_to_path(self, layer: Layer, key_path: str, ...)`:** Writes data (bytes) directly to a specified relative `key_path` within the appropriate layer folder. Creates parent directories and writes the file. Returns `WriteResponse`.
+    - **`list_files(self, layer: Layer, prefix: str)`:** Lists files within a given prefix (directory path) in the corresponding layer folder using `os.scandir`. Returns `ListResponse` containing a list of full file paths.
+    - **`raw_layer_path(self, database: Database, ...)`:** Constructs and returns path information (`PathResponse`) for the Raw layer, primarily providing the local `base_path`.
+    - **`base_layer_path(self, layer: Layer)`:** Marked as not implemented for local storage. Raises `NotImplementedError`.
+
+---
+
 ```python
 
 from data_framework.modules.utils.logger import logger
@@ -5822,6 +6361,25 @@ class LocalStorage(CoreStorageInterface):
 ```
 
 #### src/data_framework/modules/storage/integrations/s3_storage.py
+#### `src/data_framework/modules/storage/integrations/s3_storage.py`
+**Purpose:**
+This script provides a concrete implementation of the `CoreStorageInterface` that interacts with AWS Simple Storage Service (S3). It allows the framework to read, write, and list objects in S3 buckets structured according to the defined layers and database/table/partition conventions.
+
+**Key parts:**
+- **`BuildPathResponse(NamedTuple)`:** Internal helper tuple for returning base and data paths/keys.
+- **`S3Storage(CoreStorageInterface)` class:** Implements the storage interface for S3.
+    - **`__init__(self)`:** Initializes the `boto3` S3 client using the region from the configuration.
+    - **`read(self, layer: Layer, key_path: str, ...)`:** Reads an object from S3. Determines the bucket using `_build_s3_bucket_name`, calls `s3.get_object`, and returns the object's body content as bytes in a `ReadResponse`. Handles S3-specific errors.
+    - **`_build_s3_bucket_name(self, layer: Layer)`:** Constructs the S3 bucket name based on the configured `bucket_prefix` and the layer name (e.g., `prefix-landing`, `prefix-raw`).
+    - **`_build_s3_key_path(self, database: Database, ...)`:** Constructs the S3 object key (path within the bucket), including database, table, optional partition structure (`key=value/`), and filename. Returns a `BuildPathResponse`.
+    - **`write(self, layer: Layer, database: Database, ...)`:** Writes data (bytes) to an S3 object. Determines bucket and key using helper methods and calls `s3.put_object`. Returns `WriteResponse`. Handles S3-specific errors.
+    - **`write_to_path(self, layer: Layer, key_path: str, ...)`:** Writes data (bytes) directly to a specified `key_path` within the appropriate S3 bucket. Calls `s3.put_object`. Returns `WriteResponse`.
+    - **`list_files(self, layer: Layer, prefix: str)`:** Lists object keys within a given S3 bucket and prefix using `s3.get_paginator('list_objects_v2')` to handle potential pagination. Returns `ListResponse` containing a list of object keys.
+    - **`raw_layer_path(self, database: Database, ...)`:** Constructs and returns path information (`PathResponse`) for accessing data in the Raw layer on S3, considering execution mode for partitioning. Provides S3 URIs (`s3://...`) and relative paths.
+    - **`base_layer_path(self, layer: Layer)`:** Constructs and returns path information (`PathResponse`) representing the base S3 URI for a given layer (e.g., `s3://prefix-landing`).
+
+---
+
 ```python
 
 import boto3
@@ -5987,6 +6545,21 @@ class S3Storage(CoreStorageInterface):
 ```
 
 #### src/data_framework/modules/storage/interface_storage.py
+#### `src/data_framework/modules/storage/interface_storage.py`s
+**Purpose:**
+This script defines the abstract interface and common data structures for storage operations within the framework. It establishes a contract that all concrete storage implementations (like `LocalStorage` or `S3Storage`) must follow, ensuring consistency. It also defines standard logical groupings for data (Layers and Databases).
+
+**Key parts:**
+- **`Layer(Enum)`:** Defines standard logical data layers (LANDING, RAW, STAGING, COMMON, BUSINESS, OUTPUT, ATHENA, TEMP). Values correspond to path components.
+- **`Database(Enum)`:** Defines standard logical database names used within layers (e.g., FUNDS_RAW, FUNDS_STAGING, DATA_QUALITY). Values correspond to path components. Includes some potentially legacy/specific database names.
+- **`ReadResponse` dataclass:** Standard structure for returning data from read operations (`success`, `error`, `data` as bytes).
+- **`WriteResponse` dataclass:** Standard structure for reporting the outcome of write operations (`success`, `error`).
+- **`ListResponse` dataclass:** Standard structure for returning results from list operations (`success`, `error`, `result` as list).
+- **`PathResponse` dataclass:** Standard structure for returning path-related information (`success`, `error`, `bucket`, various path representations).
+- **`CoreStorageInterface(ABC)` class:**
+    - Abstract Base Class defining the required methods for storage interactions.
+    - **Abstract Methods:** `read`, `write`, `write_to_path`, `list_files`, `raw_layer_path`, `base_layer_path`. These methods define the expected signatures, ensuring implementing classes provide the necessary functionality for interacting with storage in a standardized way.
+
 ```python
 
 from abc import ABC, abstractmethod
@@ -6089,8 +6662,38 @@ class CoreStorageInterface(ABC):
 
 ```
 
+### DF Modules: Utils
+### DF Modules: utils
+#### Summary
+This module provides a collection of general-purpose utilities and shared components used throughout the Data Framework. It includes a simple mechanism for conditional debugging based on environment configuration, a standardized singleton logger setup for consistent logging across the framework, and helper functions leveraging regular expressions for common string manipulations.
 
+#### What the "utils" module does (big picture)
+- **Goal:** To centralize common, reusable functionalities like logging, debugging checks, and string operations, supporting various other modules within the framework.
+- **Why it matters:** Consolidating these utilities prevents code duplication, ensures consistent logging behavior and formatting, provides a simple way to manage debug-only code paths, and offers reliable string manipulation helpers.
+- **How:**
+    - `debug.py` defines a lambda function `debug_code` that checks the global framework configuration (`config().environment`) to return `True` if the environment is *not* `PRODUCTION`, offering a simple flag for conditional logic.
+    - `logger.py` implements a thread-safe singleton `Logger` class to configure and provide a globally accessible standard Python logger instance (`logger`). It sets a predefined format (`LOG_FORMAT`, `DATE_FORMAT`) and configures a console handler (`StreamHandler`) at the `INFO` level.
+    - `regex.py` contains utility functions built using Python's `re` module. Currently, it includes `change_file_extension` for safely modifying filename extensions.
+
+#### utils Module High-Level: Script by Script
+
+| Script      | What it is             | What it does |
+| :---------- | :--------------------- | :----------- |
+| `debug.py`  | Debug Flag Utility     | Provides a simple flag (`debug_code`) that returns true if the configured environment is not Production. |
+| `logger.py` | Logging Configuration  | Sets up and provides a thread-safe, globally accessible singleton logger instance with standard formatting and console output. |
+| `regex.py`  | Regex Utilities        | Contains helper functions that use regular expressions for string manipulation, such as changing file extensions. |
+
+---
 #### src/data_framework/modules/utils/debug.py
+#### `src/data_framework/modules/utils/debug.py`
+**Purpose:**
+This script provides a straightforward way to check if the framework is running in a non-production environment, typically used to enable or disable debugging-specific code execution (e.g., extra logging, showing dataframes).
+
+**Key parts:**
+- **`debug_code` (lambda function):** Checks `config().environment` from the core configuration module. Returns `True` if the environment is not equal to `Environment.PRODUCTION`, `False` otherwise.
+
+---
+
 ```python
 
 from data_framework.modules.config.core import config
@@ -6102,6 +6705,26 @@ debug_code = lambda: config().environment != Environment.PRODUCTION
 ```
 
 #### src/data_framework/modules/utils/logger.py
+#### `src/data_framework/modules/utils/logger.py`
+**Purpose:**
+This script configures and provides a standardized, globally accessible logger instance for use throughout the Data Framework. It ensures consistent log formatting and output handling using a singleton pattern.
+
+**Key parts:**
+- **`LOG_FORMAT` (constant):** Defines the standard format string for log messages, including timestamp, level, filename, function name, line number, and message.
+- **`DATE_FORMAT` (constant):** Defines the format for timestamps within log messages.
+- **`Logger` class (Singleton):**
+    - Uses a thread-safe lock (`_lock`) and class variable (`_instance`) to ensure only one instance is created.
+    - In its `__new__` method, it configures the root logger (named "DF"):
+        - Sets the logging level to `INFO`.
+        - Creates a `StreamHandler` to output logs to `sys.stdout`.
+        - Creates a `Formatter` using `LOG_FORMAT` and `DATE_FORMAT`.
+        - Adds the configured handler to the logger.
+        - Stores the logger instance in `cls._instance.logger`.
+    - Raises `LoggerInitializationError` if any part of the setup fails.
+- **`logger` (global instance):** A globally accessible variable holding the configured logger instance obtained from the `Logger` singleton. Other modules can import and use this `logger` directly.
+
+---
+
 ```python
 
 from data_framework.modules.exception.generic_exceptions import LoggerInitializationError
@@ -6145,6 +6768,17 @@ logger = Logger()._instance.logger
 ```
 
 #### src/data_framework/modules/utils/regex.py
+#### `src/data_framework/modules/utils/regex.py`
+**Purpose:**
+This script provides reusable utility functions that leverage regular expressions for common string manipulation tasks, particularly useful for handling filenames and potentially other text processing needs within the framework.
+
+**Key parts:**
+- **`change_file_extension(filename: str, new_extension: str) -> str` function:**
+    - Takes a filename string and a desired new extension string.
+    - Validates that the `new_extension` looks like a valid extension (starts with '.' followed by word characters). Prepends '.' if missing. Raises `ValueError` if invalid.
+    - Uses `re.sub` with a pattern (`r'\.\w+$'`) to find and replace the existing extension (a dot followed by one or more word characters at the end of the string) with the `new_extension`.
+    - Returns the modified filename string.
+
 ```python
 
 import re
@@ -6162,7 +6796,7 @@ def change_file_extension(filename: str, new_extension: str) -> str:
 
 ```
 
-
+### DF Modules: Validations
 #### src/data_framework/modules/validation/core_quality_controls.py
 ```python
 
@@ -6201,7 +6835,6 @@ class CoreQualityControls(object):
 
 
 ```
-
 
 #### src/data_framework/modules/validation/integrations/file_validator.py
 ```python
@@ -7207,6 +7840,7 @@ class InterfaceQualityControls(ABC):
 
 ```
 
+## The Data Framework: Tests.
 #### src/data_framework/tests/test_utils.py
 ```python
 
@@ -7220,7 +7854,8 @@ def test_logger():
 
 
 ```
-## source code: launcher
+
+## Launcher
 #### src/launchers/emr_launcher.py
 ```python
 
