@@ -220,3 +220,84 @@ The launcher will dynamically select the correct ProcessingCoordinator class. Ea
 - **Dynamic Imports**: More detailed error handling when a dynamic import fails (`Launcher._execute`).
 
 ---
+
+
+
+## Updated Prommpt
+
+Okay, here is a prompt optimized for an LLM, incorporating your requirements and including the instruction to process a README file first. You can copy and paste this entire block into your target LLM (like ChatGPT).
+
+BEGIN PROMPT TO COPY-PASTE
+
+You are an AI assistant acting as a technical writer. Your primary task is to generate structured, raw Markdown documentation for Python modules within a specific software framework. I will provide you with the necessary Python scripts and the project's README for context.
+
+Project Context:
+
+The documentation pertains to modules located in the src/dataframe_work/modules/ directory of a repository/framework.
+These modules are reusable building blocks for data pipelines (e.g., reading data, processing, interacting with AWS, monitoring).
+Modules often follow patterns like Interfaces, Core Logic, and Integrations.
+I will first provide the project's README.md content for overall context. Please process this first.
+Critical Instructions & Constraints:
+
+RAW MARKDOWN OUTPUT: This is the most critical requirement. You MUST output only raw, unrendered Markdown text. Do not interpret or render the Markdown in your response. The output must be immediately copy-pasteable as valid raw Markdown source.
+STRICT TEMPLATE ADHERENCE: Follow the exact Markdown structure, heading levels, and formatting defined in the template below for every module.
+BATCH PROCESSING: Modules can be large. I will provide the Python scripts in batches. You will generate documentation incrementally based only on the scripts provided in each specific interaction.
+NO NUMBERING: Do not automatically number lists or script sections unless explicitly part of the provided script content or requested format (e.g., bullet points for 'Key parts' are okay).
+ACCURACY: Base the documentation (summaries, purposes, key parts) accurately on the Python code provided.
+Mandatory Markdown Structure Template (Per Module):
+
+Markdown
+### DF Modules: [ModuleName].
+
+#### Summary
+[Provide a concise summary of what this module is for, based on the scripts.]
+
+#### What the "[ModuleName]" module does (big picture)
+[Explain the module's Goal, Why it matters, and How it achieves its purpose, based on the scripts.]
+- **Goal:** [Goal description]
+- **Why it matters:** [Importance description]
+- **How:** [Methodology/approach description, referencing key scripts/patterns if identifiable]
+
+#### [ModuleName] Module High-Level: Script by Script
+[Generate a Markdown table summarizing the scripts provided for this module.]
+| Script             | What it is        | What it does |
+| :----------------- | :---------------- | :----------- |
+| `[script_name1.py]` | [Brief description of the script's role/type, e.g., Interface, Core Logic, AWS Integration] | [Brief description of the script's main function/action] |
+| `[script_name2.py]` | [Brief description...]  | [Brief description...] |
+| ...                | ...               | ...          |
+
+---
+
+#### `[script_name1.py]`
+**Purpose:**
+[Explain the specific purpose of this script within the module.]
+**Key parts:**
+- [List key classes, functions, methods, or important logic blocks found in this script. Use bullet points.]
+- [Example key part...]
+- [Another key part...]
+
+#### `[script_name2.py]`
+**Purpose:**
+[Explain the specific purpose of this script within the module.]
+**Key parts:**
+- [List key classes, functions, methods, or important logic blocks found in this script. Use bullet points.]
+
+(Repeat the #### `script_name.py` section for every script provided for the module)
+Interaction Process:
+
+I will first paste the content of the project's README.md. Acknowledge you have processed it.
+Then, for each module:
+I will state the [ModuleName].
+I will provide the Python code for one or more scripts ([script_name.py]) belonging to that module.
+You will generate the corresponding raw Markdown documentation section(s) (e.g., updating the table, adding script detail sections) following the template exactly, based only on the scripts provided in that step.
+Starting Point:
+
+After you confirm understanding and process the README, the first module we will document is data_process. This is a large module, so I will provide its scripts in several batches.
+Confirmation Request:
+
+Please confirm:
+
+You understand you MUST output only raw, unrendered Markdown.
+You understand you MUST follow the exact structure template provided above.
+You have read and analysed the README.md content first for overall context.
+Do not start generating any documentation until you analysed the README and then the first batch of scripts for the data_process module that I will prompt after your confirmation. The module data_process tally a total of circa 1930 lines of the markdown file that I use as input. Please, confirm the optimal amount of lines per input so I can batch it if necessary. Alternatively, I can share these 1930 lines for you to have a general view. And then if the input is to large, in further prompts, share again these lines on batches
