@@ -6,8 +6,8 @@
 * Setup
     * [setup.py](#setuppy)
 * Source Code
-  * The Data Framework Module
-    * dataflow
+  * The Data Framework
+    * [Dataflows](#the-data-framework-dataflows)
       * [business.py](#srcdata_frameworkdataflowbusinesspy)
       * [common.py](#srcdata_frameworkdataflowcommonpy)
       * [landing.py](#srcdata_frameworkdataflowlandingpy)
@@ -125,17 +125,16 @@ setup(
 
 ---
 
-# source code
+# The Data Framework Source Code
 
-## The Data Framework: Dataflows
-### DF Modules: dataflow
+## The Data Framework: Dataflows.
 #### Summary
 This component provides the concrete implementations for various standard dataflow processes within the Data Framework. It includes specific logic for handling data movement and transformation between different layers: Landing to Raw (`landing.py`), Raw to Staging (`staging.py`), Staging to Common (`common.py`), Staging/Common to Business (`business.py`), and Business to Output (`output.py`). Each implementation builds upon the common structure and utilities defined by `DataFlowInterface`.
 
 #### What the "dataflow" component does (big picture)
 - **Goal:** To define the specific, executable logic for each distinct stage of data processing within the framework's defined architecture (e.g., ingestion, staging, business logic application, output generation).
 - **Why it matters:** It encapsulates the unique tasks required at each data layer (like file validation in Landing, transformation logic in Staging/Business, formatting in Output), making the overall data pipeline modular and maintainable.
-- **How:** Each script defines one or more classes (e.g., `ProcessingCoordinator`, `StagingToBusiness`, `RawToStaging`) that inherit from `DataFlowInterface` (located in `src/data_framework/modules/dataflow/`). These classes leverage the inherited properties (access to config, logger, core modules) and helper methods. Key scripts like `landing.py` and `output.py` implement detailed logic within their `process()` methods, covering tasks like file handling, validation, deduplication, data retrieval, format conversion (XML/Excel/JSON to Parquet/JSON Lines), writing data via storage modules, and sending notifications. Other scripts (`business.py`, `common.py`, `staging.py`) currently define the class structure inheriting from the interface, implying their specific process logic would be added later.
+- **How:** Each script defines one or more classes (e.g., `ProcessingCoordinator`, `StagingToBusiness`, `RawToStaging`) that inherit from `DataFlowInterface` (located in ``). These classes leverage the inherited properties (access to config, logger, core modules) and helper methods. Key scripts like `landing.py` and `output.py` implement detailed logic within their `process()` methods, covering tasks like file handling, validation, deduplication, data retrieval, format conversion (XML/Excel/JSON to Parquet/JSON Lines), writing data via storage modules, and sending notifications. Other scripts (`business.py`, `common.py`, `staging.py`) currently define the class structure inheriting from the interface, implying their specific process logic would be added later.
 
 #### dataflow Component High-Level: Script by Script
 
@@ -147,8 +146,434 @@ This component provides the concrete implementations for various standard datafl
 | `output.py`                           | Dataflow Implementation | Implements `ProcessingCoordinator` for generating output files. Reads data based on configurations, formats (CSV/JSON), applies filters/aliases, writes to specified paths, handles errors per output, and sends notifications. |
 | `staging.py`                          | Dataflow Implementation | Defines a class (`RawToStaging`) representing the dataflow from the Raw layer to the Staging layer. Currently inherits structure from `DataFlowInterface`. |
 
+
+### Dataflows: landing
+#### src/data_framework/dataflow/landing.py
+#### `landing.py`
+**Purpose:**
+This script implements the core logic for ingesting data from the Landing layer into the Raw layer. It acts as the entry point for new data, performing crucial steps like reading files, validating their structure and content, checking for duplicates against previous runs, handling different file formats and compressions, and finally writing the validated, potentially normalized data to the Raw storage layer with appropriate partitioning.
+
+**Key parts:**
+- **`ProcessingCoordinator(DataFlowInterface)` class:** Orchestrates the entire landing process.
+    - **`__init__(self)`:** Initializes base class and helpers like `Storage`, `CoreCatalogue`.
+    - **`process(self)`:** Main entry point. Handles different execution modes (`DELTA` for single file, `ON_DEMAND` iterates through files matching a pattern under a prefix). Calls `process_file` for each valid file.
+    - **`process_file(self)`:** Orchestrates the processing of a single file: reads, validates, checks for duplicates, creates partitions, and writes. Manages payload response state (`success`, `next_stage`). Sends `file_arrival` notification. Uses `FileValidator` and `CoreQualityControls`.
+    - **`read_data(self)`:** Reads file content from Landing storage using `Storage.read`. Handles plain files and decompression for ZIP (`ZipFile`) and TAR (`tarfile`) archives, returning a dictionary of file contents.
+    - **`obtain_file_date(self)`:** Extracts a date string from the filename using regex patterns defined in the configuration (`incoming_file.specifications`). Handles named or unnamed regex groups. Raises errors for pattern mismatches or missing groups. `DateLocated.COLUMN` is noted as not implemented.
+    - **`compare_with_previous_file(self, file_contents: dict)`:** Checks if the current file is identical to the last successfully processed file with the same base name by comparing MD5 hashes (`get_file_hash`). Uses `get_last_processed_file_key` to find the previous file. Returns `False` if identical (to skip processing), `True` otherwise.
+    - **`get_last_processed_file_key(self, ...)`:** Finds the S3 key of the most recent previously processed file matching the incoming filename by parsing date/time from the key path.
+    - **`get_file_hash(self, file_content: BytesIO, ...)`:** Calculates the MD5 hash of a file's content.
+    - **`create_partitions(self, file_date: str)`:** Creates partitions in the Glue Data Catalog for the Raw table using `CoreCatalogue.create_partition` based on the extracted `file_date`.
+    - **`write_data(self, file_contents: dict, ...)`:** Writes the validated and potentially normalized file content(s) to the Raw layer using `Storage.write`, applying the created partitions. Calls `normalize_file_content`.
+    - **`normalize_file_content(self, ...)`:** Converts input file content if necessary (XML/Excel to Parquet, JSON to JSON Lines) before writing. Calls specific conversion methods.
+    - **`convert_xml_to_parquet(self, ...)`:** Converts XML content to a Parquet file in memory using `pandas.read_xml` and `df.to_parquet`.
+    - **`convert_excel_to_parquet(self, ...)`:** Converts Excel content to a Parquet file in memory using `pandas.read_excel` and `df.to_parquet`.
+    - **`convert_json_to_json_lines(self, ...)`:** Converts standard JSON (list or dict) into JSON Lines format, ensuring the partition field is added to each line.
+
+```python
+# landing.py
+"""
+Coordinates the data ingestion from the Landing layer into the Raw layer
+within the Data Platform Framework.
+
+This module implements the ProcessingCoordinator class responsible for:
+- Reading files from landing storage
+- Validating incoming files
+- Detecting duplicates based on previous files
+- Transforming files (e.g., XML/Excel/JSON) if needed
+- Writing validated data to the Raw layer
+"""
+
+from data_framework.modules.dataflow.interface_dataflow import (
+    DataFlowInterface,
+    ExecutionMode
+)
+from data_framework.modules.config.model.flows import (
+    DateLocated,
+    LandingFileFormat
+)
+from data_framework.modules.storage.core_storage import Storage
+from data_framework.modules.catalogue.core_catalogue import CoreCatalogue
+from data_framework.modules.storage.interface_storage import Layer
+from data_framework.modules.exception.landing_exceptions import (
+    FileProcessError,
+    FileReadError,
+    InvalidDateRegexError,
+    InvalidRegexGroupError,
+    InvalidFileError
+)
+from data_framework.modules.utils import regex as regex_utils
+import re
+import hashlib
+import json
+from typing import Tuple
+from datetime import datetime
+from io import BytesIO
+from pathlib import Path
+from zipfile import ZipFile
+import tarfile
+from pandas import read_xml, read_excel
+
+
+class ProcessingCoordinator(DataFlowInterface):
+
+    def __init__(self):
+        super().__init__()
+
+        self.storage = Storage()
+        self.catalogue = CoreCatalogue()
+        self.parameters = self.config.parameters
+
+    def process(self):
+
+        if self.parameters.execution_mode == ExecutionMode.DELTA:
+            self.process_file()
+        else:
+            prefix = f'{self.config.project_id}/on_demand/'
+            response = self.storage.list_files(layer=Layer.LANDING, prefix=prefix)
+            for s3_key in response.result:
+                current_file = Path(s3_key).name
+
+                pattern = self.incoming_file.filename_pattern
+                valid_filename = bool(re.match(pattern, current_file))
+
+                if valid_filename:
+                    try:
+                        self.logger.info(f'[PROCESSING] {current_file}')
+                        self.parameters.source_file_path = s3_key
+                        self.process_file()
+                        self.logger.info(f'[DONE] {current_file}')
+                    except Exception:
+                        self.logger.info(f'[ERROR] {current_file}')
+                else:
+                    self.logger.info(f'[SKIP] {current_file}')
+
+    def process_file(self):
+        try:
+            # Read file from S3
+            file_contents = self.read_data()
+            # Obtain file date
+            file_date = self.obtain_file_date()
+            # TODO: eliminar notificación
+            self.notifications.send_notification(
+                notification_name='file_arrival',
+                arguments={
+                    'dataflow': self.parameters.dataflow,
+                    'process': self.parameters.process,
+                    'file_name': Path(self.parameters.source_file_path).name,
+                    'file_date': file_date
+                }
+            )
+            # Apply controls
+            response = self.quality_controls.validate(
+                layer=Layer.LANDING,
+                table_config=self.config.processes.landing_to_raw.output_file,
+                framework_controls=True,
+                file_date=file_date,
+                file_contents=file_contents,
+                file_name=Path(self.parameters.source_file_path).name
+            )
+            if response.overall_result:
+                process_file = True
+                # Compare with the previous file
+                if self.incoming_file.compare_with_previous_file:
+                    process_file = self.compare_with_previous_file(file_contents)
+                if process_file:
+                    # Create partitions
+                    partitions = self.create_partitions(file_date)
+                    # Save file in raw table
+                    self.write_data(file_contents, partitions, file_date)
+                    if self.config.processes.landing_to_raw.cancel_next_stage == False:
+                        self.payload_response.next_stage = True
+                self.payload_response.success = True
+            else:
+                raise InvalidFileError(file_path=self.parameters.source_file_path)
+        except Exception:
+            raise FileProcessError(file_path=self.parameters.source_file_path)
+
+    def read_data(self) -> dict:
+        try:
+            response = self.storage.read(
+                layer=Layer.LANDING,
+                key_path=self.parameters.source_file_path
+            )
+            s3_file_content = BytesIO(response.data)
+            filename = Path(self.parameters.source_file_path).name
+            file_contents = {
+                filename: {
+                    'content': s3_file_content,
+                    'validate': True
+                }
+            }
+            if self.incoming_file.zipped == 'zip':
+                file_contents[filename]['validate'] = False
+                with ZipFile(s3_file_content, 'r') as z:
+                    for filename in z.namelist():
+                        with z.open(filename) as f:
+                            file_contents[filename] = {
+                                'content': BytesIO(f.read()),
+                                'validate': True
+                            }
+            elif self.incoming_file.zipped == 'tar':
+                file_contents[filename]['validate'] = False
+                with tarfile.open(fileobj=s3_file_content, mode='r') as t:
+                    for filename in t.getnames():
+                        content = t.extractfile(filename).read()
+                        file_contents[filename] = {
+                            'content': BytesIO(content),
+                            'validate': True
+                        }
+            return file_contents
+        except Exception:
+            raise FileReadError(file_path=self.parameters.source_file_path)
+
+    def obtain_file_date(self) -> str:
+        specifications = self.incoming_file.specifications
+        if specifications.date_located == DateLocated.FILENAME:
+            filename = Path(self.parameters.source_file_path).name
+            pattern = specifications.date_located_filename.regex
+            match = re.search(pattern, filename)
+            if not match:
+                raise InvalidDateRegexError(filename=filename, pattern=pattern)
+            elif match.groupdict():
+                # Custom year-month-day order
+                try:
+                    year = match.group('year')
+                    month = match.group('month')
+                    day = match.group('day')
+                except IndexError:
+                    raise InvalidRegexGroupError(pattern=pattern)
+            else:
+                # Default year-month-day order
+                year, month, day = match.groups()
+            return f'{year}-{month}-{day}'
+        elif specifications.date_located == DateLocated.COLUMN:
+            # TODO: implementar
+            raise NotImplementedError('Feature date_located = column is not implemented yet')
+
+    def compare_with_previous_file(self, file_contents: dict) -> bool:
+        prefix = f'{self.config.project_id}/processed'
+        response = self.storage.list_files(Layer.LANDING, prefix)
+        if response.success:
+            incoming_filename = Path(self.parameters.source_file_path).name
+            last_file_key = self.get_last_processed_file_key(incoming_filename, response.result)
+            if last_file_key:
+                self.logger.info('Comparing with last processed file')
+                incoming_file_content = file_contents[incoming_filename]['content']
+                last_file_content = BytesIO(
+                    self.storage.read(
+                        layer=Layer.LANDING,
+                        key_path=last_file_key
+                    ).data
+                )
+                incoming_file_hash = self.get_file_hash(incoming_file_content)
+                last_file_hash = self.get_file_hash(last_file_content)
+                if incoming_file_hash == last_file_hash:
+                    self.logger.info('Incoming file and last processed file are the same')
+                    return False
+        return True
+
+    def get_last_processed_file_key(self, incoming_filename: str, file_keys: str) -> str:
+        date_pattern = r'insert_date=(\d{4}-\d{2}-\d{2})/insert_time=(\d{2}:\d{2}:\d{2})'
+        matching_files = []
+        for file_key in file_keys:
+            if file_key.endswith(incoming_filename):
+                match = re.search(date_pattern, file_key)
+                if match:
+                    insert_date = match.group(1)
+                    insert_time = match.group(2)
+                    insert_datetime = datetime.strptime(
+                        f'{insert_date} {insert_time}',
+                        '%Y-%m-%d %H:%M:%S'
+                    )
+                    matching_files.append((insert_datetime, file_key))
+        if len(matching_files) > 0:
+            matching_files.sort(reverse=True, key=lambda x: x[0])
+            return matching_files[0][1]
+        else:
+            return ''
+
+    def get_file_hash(self, file_content: BytesIO, chunk_size: int = 8000):
+        file_content.seek(0)
+        hasher = hashlib.sha256()
+        while chunk := file_content.read(chunk_size):
+            hasher.update(chunk)
+        hash_code = hasher.hexdigest()
+        return hash_code
+
+    def create_partitions(self, file_date: str) -> dict:
+        partitions = {}
+        partition_field = self.output_file.partition_field
+        response = self.catalogue.create_partition(
+            self.output_file.database_relation,
+            self.output_file.table,
+            partition_field,
+            file_date
+        )
+        if response.success:
+            partitions[partition_field] = file_date
+        return partitions
+
+    def write_data(self, file_contents: dict, partitions: dict, file_date: str) -> None:
+        for filename, file_data in file_contents.items():
+            if file_data['validate']:
+                filename, file_content = self.normalize_file_content(
+                    filename,
+                    file_data['content'],
+                    file_date
+                )
+                self.storage.write(
+                    layer=Layer.RAW,
+                    database=self.output_file.database,
+                    table=self.output_file.table,
+                    data=file_content,
+                    partitions=partitions,
+                    filename=filename
+                )
+                self.payload_response.file_name = filename
+                self.payload_response.file_date = file_date
+
+    def normalize_file_content(self, filename: str, file_content: BytesIO, file_date: str) -> Tuple[str, BytesIO]:
+        file_content.seek(0)
+        if self.incoming_file.file_format == LandingFileFormat.XML:
+            return self.convert_xml_to_parquet(filename, file_content)
+        elif self.incoming_file.file_format == LandingFileFormat.EXCEL:
+            return self.convert_excel_to_parquet(filename, file_content)
+        elif self.incoming_file.file_format == LandingFileFormat.JSON:
+            file_content = self.convert_json_to_json_lines(file_content, file_date)
+            return filename, file_content
+        else:
+            return filename, file_content
+
+    def convert_xml_to_parquet(self, filename: str, file_content: BytesIO) -> Tuple[str, BytesIO]:
+        parquet_filename = regex_utils.change_file_extension(filename, '.parquet')
+        self.logger.info(f'Converting XML file {filename} to parquet file {parquet_filename}')
+        df = read_xml(
+            file_content,
+            encoding=self.incoming_file.xml_specs.encoding,
+            xpath=self.incoming_file.xml_specs.xpath,
+            parser='etree',
+            dtype=str
+        )
+        df = df.fillna('')
+        parquet_file_content = BytesIO()
+        df.to_parquet(parquet_file_content, index=False)
+        parquet_file_content.seek(0)
+        return parquet_filename, parquet_file_content
+
+    def convert_excel_to_parquet(self, filename: str, file_content: BytesIO) -> Tuple[str, BytesIO]:
+        parquet_filename = regex_utils.change_file_extension(filename, '.parquet')
+        self.logger.info(f'Converting Excel file {filename} to parquet file {parquet_filename}')
+        df = read_excel(file_content, dtype=str)
+        df = df.fillna('')
+        parquet_file_content = BytesIO()
+        df.to_parquet(parquet_file_content, index=False)
+        parquet_file_content.seek(0)
+        return parquet_filename, parquet_file_content
+
+    def convert_json_to_json_lines(self, file_content: BytesIO, file_date: str) -> BytesIO:
+        encoding = self.incoming_file.json_specs.encoding
+        json_content = json.load(file_content)
+        json_lines_content = BytesIO()
+        if isinstance(json_content, list):
+            for item in json_content:
+                item[self.output_file.partition_field] = file_date
+                json_lines_content.write(json.dumps(item).encode(encoding) + b'\n')
+        elif isinstance(json_content, dict):
+            json_content[self.output_file.partition_field] = file_date
+            json_lines_content.write(json.dumps(json_content).encode(encoding))
+        json_lines_content.seek(0)
+        return json_lines_content
+
+
+if __name__ == '__main__':
+    stb = ProcessingCoordinator()
+    stb.process()
+
+```
+
+
+### Dataflows: Staging
+#### src/data_framework/dataflow/staging.py
+#### `staging.py`
+**Purpose:**
+This script defines the dataflow class responsible for processing data from the Raw layer into the Staging layer of the framework. It provides a placeholder for logic that typically involves cleaning, standardizing, and possibly enriching the raw data before it moves further into the Common or Business layers.
+
+**Key parts:**
+- **`RawToStaging(DataFlowInterface)` class:** Represents the process of transforming data from the Raw layer to the Staging layer. Inherits from `DataFlowInterface`. Currently only calls the parent `__init__`. The specific `process()` logic (likely involving reading from Raw, applying transformations/validations, and writing to Staging using `CoreDataProcess`) is expected to be implemented here.
+```python
+# staging.py
+"""
+Defines the dataflow process from the Raw layer to the Staging layer
+within the Data Platform Framework.
+
+This module implements a ProcessingCoordinator class responsible
+for coordinating the movement and preparation of data at the staging level.
+"""
+
+from data_framework.modules.dataflow.interface_dataflow import DataFlowInterface
+
+
+class RawToStaging(DataFlowInterface):
+    """
+    Coordinates the dataflow from the Raw layer to the Staging layer.
+
+    Inherits shared functionality from DataFlowInterface.
+    """
+
+    def __init__(self):
+        """
+        Initialize RawToStaging by invoking the base class constructor.
+        """
+        super().__init__()  # Initialize the parent DataFlowInterface
+
+```
+
+---
+
+
+### Dataflows: common
+#### src/data_framework/dataflow/common.py
+#### `common.py`
+**Purpose:**
+This script defines the dataflow class responsible for processing data into the Common layer of the framework. It provides a placeholder for logic that transforms data from the Staging layer into a standardized, common format.
+
+**Key parts:**
+- **`StagingToCommon(DataFlowInterface)` class:** Represents the process of transforming data from the Staging layer to the Common layer. Inherits from `DataFlowInterface`. Currently only calls the parent `__init__`. The specific `process()` logic is expected to be implemented here.
+
+```python
+
+# common.py
+"""
+Defines the common-level dataflow process for the Data Platform Framework.
+
+This module implements a ProcessingCoordinator class responsible
+for handling data transitions from staging to common layers.
+"""
+
+from data_framework.modules.dataflow.interface_dataflow import DataFlowInterface
+
+
+class StagingToCommon(DataFlowInterface):
+    """
+    Coordinates the dataflow from the Staging layer to the Common layer.
+
+    Inherits shared functionality from DataFlowInterface.
+    """
+
+    def __init__(self):
+        """
+        Initialize StagingToCommon by invoking the base class constructor.
+        """
+        super().__init__()  # Initialize the parent DataFlowInterface
+
+
+```
+
+
+### Dataflows: business
 #### src/data_framework/dataflow/business.py
-#### `src/data_framework/dataflow/business.py`
+#### `business.py`
 **Purpose:**
 This script defines the dataflow classes responsible for processing data into the Business layer of the framework. It provides placeholders for logic that transforms data from Staging or Common layers into business-specific views or aggregates.
 
@@ -199,473 +624,9 @@ class CommonToBusiness(DataFlowInterface):
 
 ```
 
-#### src/data_framework/dataflow/common.py
-#### `src/data_framework/dataflow/common.py`
-**Purpose:**
-This script defines the dataflow class responsible for processing data into the Common layer of the framework. It provides a placeholder for logic that transforms data from the Staging layer into a standardized, common format.
-
-**Key parts:**
-- **`StagingToCommon(DataFlowInterface)` class:** Represents the process of transforming data from the Staging layer to the Common layer. Inherits from `DataFlowInterface`. Currently only calls the parent `__init__`. The specific `process()` logic is expected to be implemented here.
-
-```python
-
-# common.py
-"""
-Defines the common-level dataflow process for the Data Platform Framework.
-
-This module implements a ProcessingCoordinator class responsible
-for handling data transitions from staging to common layers.
-"""
-
-from data_framework.modules.dataflow.interface_dataflow import DataFlowInterface
-
-
-class StagingToCommon(DataFlowInterface):
-    """
-    Coordinates the dataflow from the Staging layer to the Common layer.
-
-    Inherits shared functionality from DataFlowInterface.
-    """
-
-    def __init__(self):
-        """
-        Initialize StagingToCommon by invoking the base class constructor.
-        """
-        super().__init__()  # Initialize the parent DataFlowInterface
-
-
-```
-
-#### src/data_framework/dataflow/landing.py
-#### `src/data_framework/dataflow/landing.py`
-**Purpose:**
-This script implements the core logic for ingesting data from the Landing layer into the Raw layer. It acts as the entry point for new data, performing crucial steps like reading files, validating their structure and content, checking for duplicates against previous runs, handling different file formats and compressions, and finally writing the validated, potentially normalized data to the Raw storage layer with appropriate partitioning.
-
-**Key parts:**
-- **`ProcessingCoordinator(DataFlowInterface)` class:** Orchestrates the entire landing process.
-    - **`__init__(self)`:** Initializes base class and helpers like `Storage`, `CoreCatalogue`.
-    - **`process(self)`:** Main entry point. Handles different execution modes (`DELTA` for single file, `ON_DEMAND` iterates through files matching a pattern under a prefix). Calls `process_file` for each valid file.
-    - **`process_file(self)`:** Orchestrates the processing of a single file: reads, validates, checks for duplicates, creates partitions, and writes. Manages payload response state (`success`, `next_stage`). Sends `file_arrival` notification. Uses `FileValidator` and `CoreQualityControls`.
-    - **`read_data(self)`:** Reads file content from Landing storage using `Storage.read`. Handles plain files and decompression for ZIP (`ZipFile`) and TAR (`tarfile`) archives, returning a dictionary of file contents.
-    - **`obtain_file_date(self)`:** Extracts a date string from the filename using regex patterns defined in the configuration (`incoming_file.specifications`). Handles named or unnamed regex groups. Raises errors for pattern mismatches or missing groups. `DateLocated.COLUMN` is noted as not implemented.
-    - **`compare_with_previous_file(self, file_contents: dict)`:** Checks if the current file is identical to the last successfully processed file with the same base name by comparing MD5 hashes (`get_file_hash`). Uses `get_last_processed_file_key` to find the previous file. Returns `False` if identical (to skip processing), `True` otherwise.
-    - **`get_last_processed_file_key(self, ...)`:** Finds the S3 key of the most recent previously processed file matching the incoming filename by parsing date/time from the key path.
-    - **`get_file_hash(self, file_content: BytesIO, ...)`:** Calculates the MD5 hash of a file's content.
-    - **`create_partitions(self, file_date: str)`:** Creates partitions in the Glue Data Catalog for the Raw table using `CoreCatalogue.create_partition` based on the extracted `file_date`.
-    - **`write_data(self, file_contents: dict, ...)`:** Writes the validated and potentially normalized file content(s) to the Raw layer using `Storage.write`, applying the created partitions. Calls `normalize_file_content`.
-    - **`normalize_file_content(self, ...)`:** Converts input file content if necessary (XML/Excel to Parquet, JSON to JSON Lines) before writing. Calls specific conversion methods.
-    - **`convert_xml_to_parquet(self, ...)`:** Converts XML content to a Parquet file in memory using `pandas.read_xml` and `df.to_parquet`.
-    - **`convert_excel_to_parquet(self, ...)`:** Converts Excel content to a Parquet file in memory using `pandas.read_excel` and `df.to_parquet`.
-    - **`convert_json_to_json_lines(self, ...)`:** Converts standard JSON (list or dict) into JSON Lines format, ensuring the partition field is added to each line.
-
-```python
-# landing.py
-"""
-Coordinates the data ingestion from the Landing layer into the Raw layer
-within the Data Platform Framework.
-
-This module implements the ProcessingCoordinator class responsible for:
-- Reading files from landing storage
-- Validating incoming files
-- Detecting duplicates based on previous files
-- Transforming files (e.g., XML/Excel/JSON) if needed
-- Writing validated data to the Raw layer
-"""
-
-from data_framework.modules.dataflow.interface_dataflow import (
-    DataFlowInterface,
-    ExecutionMode
-)
-from data_framework.modules.config.model.flows import (
-    DateLocated,
-    LandingFileFormat
-)
-from data_framework.modules.storage.core_storage import Storage
-from data_framework.modules.catalogue.core_catalogue import CoreCatalogue
-from data_framework.modules.storage.interface_storage import Layer
-from data_framework.modules.validation.integrations.file_validator import FileValidator
-from data_framework.modules.exception.landing_exceptions import (
-    FileProcessError,
-    FileReadError,
-    InvalidDateRegexError,
-    InvalidRegexGroupError,
-    InvalidFileError
-)
-from data_framework.modules.utils import regex as regex_utils
-import re
-import hashlib
-import json
-from typing import Tuple
-from datetime import datetime
-from io import BytesIO
-from pathlib import Path
-from zipfile import ZipFile
-import tarfile
-from pandas import read_xml, read_excel
-
-
-class ProcessingCoordinator(DataFlowInterface):
-    """
-    Orchestrates the landing file processing workflow.
-
-    Inherits from DataFlowInterface and implements steps such as reading,
-    validating, deduplicating, partitioning, and writing incoming data files.
-    """
-
-    def __init__(self):
-        """
-        Initialize ProcessingCoordinator components such as storage,
-        catalogue, and configuration parameters.
-        """
-        super().__init__()
-        self.storage = Storage()
-        self.catalogue = CoreCatalogue()
-        self.parameters = self.config.parameters
-
-    def process(self):
-        """
-        Entry point to process landing files based on the execution mode.
-
-        If DELTA mode, processes a specific file.
-        If ON_DEMAND mode, processes all matching files under an S3 prefix.
-        """
-        if self.parameters.execution_mode == ExecutionMode.DELTA:
-            self.process_file()
-        else:
-            prefix = f'{self.config.project_id}/on_demand/'
-            response = self.storage.list_files(layer=Layer.LANDING, prefix=prefix)
-            for s3_key in response.result:
-                current_file = Path(s3_key).name
-                pattern = self.incoming_file.filename_pattern
-                valid_filename = bool(re.match(pattern, current_file))
-
-                if valid_filename:
-                    try:
-                        self.logger.info(f'[PROCESSING] {current_file}')
-                        self.parameters.source_file_path = s3_key
-                        self.process_file()
-                        self.logger.info(f'[DONE] {current_file}')
-                    except Exception:
-                        self.logger.info(f'[ERROR] {current_file}')
-                else:
-                    self.logger.info(f'[SKIP] {current_file}')
-
-    def process_file(self):
-        """
-        Process an individual file:
-        - Read content
-        - Validate structure and content
-        - Check for duplicates
-        - Write to the Raw layer if valid
-        """
-        try:
-            self.payload_response.file_name = Path(self.parameters.source_file_path).name
-
-            # Read the file from storage
-            file_contents = self.read_data()
-
-            # Extract the date from filename or content
-            file_date = self.obtain_file_date()
-            self.payload_response.file_date = file_date
-
-            # Send notification about file arrival
-            self.notifications.send_notification(
-                notification_name='file_arrival',
-                arguments={
-                    'dataflow': self.parameters.dataflow,
-                    'process': self.parameters.process,
-                    'file_name': Path(self.parameters.source_file_path).name,
-                    'file_date': file_date
-                }
-            )
-
-            # Apply validation checks
-            file_validator = FileValidator(
-                file_date=file_date,
-                file_contents=file_contents,
-                source_file_path=self.parameters.source_file_path
-            )
-
-            self.quality_controls.set_parent(file_validator)
-            response = self.quality_controls.validate(
-                layer=Layer.LANDING,
-                table_config=self.config.processes.landing_to_raw.output_file
-            )
-
-            if response.overall_result:
-                process_file = True
-
-                # Optionally compare file with previous version
-                if self.incoming_file.compare_with_previous_file:
-                    process_file = self.compare_with_previous_file(file_contents)
-
-                if process_file:
-                    # Create necessary partitions
-                    partitions = self.create_partitions(file_date)
-                    # Write the file contents to storage
-                    self.write_data(file_contents, partitions, file_date)
-                    self.payload_response.next_stage = True
-
-                self.payload_response.success = True
-            else:
-                raise InvalidFileError(file_path=self.parameters.source_file_path)
-        except Exception:
-            raise FileProcessError(file_path=self.parameters.source_file_path)
-
-    def read_data(self) -> dict:
-        """
-        Read file content from landing storage.
-        Supports plain files, ZIP archives, and TAR archives.
-        """
-        try:
-            response = self.storage.read(
-                layer=Layer.LANDING,
-                key_path=self.parameters.source_file_path
-            )
-            s3_file_content = BytesIO(response.data)
-            filename = Path(self.parameters.source_file_path).name
-            file_contents = {
-                filename: {
-                    'content': s3_file_content,
-                    'validate': True
-                }
-            }
-
-            # Handle compressed files if specified
-            if self.incoming_file.zipped == 'zip':
-                file_contents[filename]['validate'] = False
-                with ZipFile(s3_file_content, 'r') as z:
-                    for filename in z.namelist():
-                        with z.open(filename) as f:
-                            file_contents[filename] = {
-                                'content': BytesIO(f.read()),
-                                'validate': True
-                            }
-            elif self.incoming_file.zipped == 'tar':
-                file_contents[filename]['validate'] = False
-                with tarfile.open(fileobj=s3_file_content, mode='r') as t:
-                    for filename in t.getnames():
-                        content = t.extractfile(filename).read()
-                        file_contents[filename] = {
-                            'content': BytesIO(content),
-                            'validate': True
-                        }
-            return file_contents
-        except Exception:
-            raise FileReadError(file_path=self.parameters.source_file_path)
-
-    def obtain_file_date(self) -> str:
-        """
-        Extract the date associated with the file based on filename patterns.
-
-        Raises an error if the date regex is invalid or missing groups.
-        """
-        specifications = self.incoming_file.specifications
-        if specifications.date_located == DateLocated.FILENAME:
-            filename = Path(self.parameters.source_file_path).name
-            pattern = specifications.date_located_filename.regex
-            match = re.search(pattern, filename)
-
-            if not match:
-                raise InvalidDateRegexError(filename=filename, pattern=pattern)
-            elif match.groupdict():
-                # Extract named groups (year, month, day)
-                try:
-                    year = match.group('year')
-                    month = match.group('month')
-                    day = match.group('day')
-                except IndexError:
-                    raise InvalidRegexGroupError(pattern=pattern)
-            else:
-                year, month, day = match.groups()
-
-            return f'{year}-{month}-{day}'
-        elif specifications.date_located == DateLocated.COLUMN:
-            raise NotImplementedError('Feature date_located = column is not implemented yet')
-
-    def compare_with_previous_file(self, file_contents: dict) -> bool:
-        """
-        Compare current file with the last processed file to detect duplicates.
-        """
-        prefix = f'{self.config.project_id}/processed'
-        response = self.storage.list_files(Layer.LANDING, prefix)
-
-        if response.success:
-            incoming_filename = Path(self.parameters.source_file_path).name
-            last_file_key = self.get_last_processed_file_key(incoming_filename, response.result)
-
-            if last_file_key:
-                self.logger.info('Comparing with last processed file')
-                incoming_file_content = file_contents[incoming_filename]['content']
-                last_file_content = BytesIO(
-                    self.storage.read(
-                        layer=Layer.LANDING,
-                        key_path=last_file_key
-                    ).data
-                )
-
-                incoming_file_hash = self.get_file_hash(incoming_file_content)
-                last_file_hash = self.get_file_hash(last_file_content)
-
-                if incoming_file_hash == last_file_hash:
-                    self.logger.info('Incoming file and last processed file are the same')
-                    return False
-
-        return True
-
-    def get_last_processed_file_key(self, incoming_filename: str, file_keys: str) -> str:
-        """
-        Find the last processed file matching the incoming filename by datetime.
-        """
-        date_pattern = r'insert_date=(\d{4}-\d{2}-\d{2})/insert_time=(\d{2}:\d{2}:\d{2})'
-        matching_files = []
-
-        for file_key in file_keys:
-            if file_key.endswith(incoming_filename):
-                match = re.search(date_pattern, file_key)
-                if match:
-                    insert_date = match.group(1)
-                    insert_time = match.group(2)
-                    insert_datetime = datetime.strptime(
-                        f'{insert_date} {insert_time}',
-                        '%Y-%m-%d %H:%M:%S'
-                    )
-                    matching_files.append((insert_datetime, file_key))
-
-        if matching_files:
-            matching_files.sort(reverse=True, key=lambda x: x[0])
-            return matching_files[0][1]
-        else:
-            return ''
-
-    def get_file_hash(self, file_content: BytesIO, chunk_size: int = 8000) -> str:
-        """
-        Generate an MD5 hash of a file's content for comparison.
-        """
-        file_content.seek(0)
-        hasher = hashlib.md5()
-
-        while chunk := file_content.read(chunk_size):
-            hasher.update(chunk)
-
-        hash_code = hasher.hexdigest()
-        return hash_code
-
-    def create_partitions(self, file_date: str) -> dict:
-        """
-        Create partition mapping for the raw table based on file date.
-        """
-        partitions = {}
-        partition_field = self.output_file.partition_field
-
-        response = self.catalogue.create_partition(
-            self.output_file.database_relation,
-            self.output_file.table,
-            partition_field,
-            file_date
-        )
-
-        if response.success:
-            partitions[partition_field] = file_date
-
-        return partitions
-
-    def write_data(self, file_contents: dict, partitions: dict, file_date: str) -> None:
-        """
-        Write validated file contents into the Raw layer.
-        """
-        for filename, file_data in file_contents.items():
-            if file_data['validate']:
-                filename, file_content = self.normalize_file_content(
-                    filename,
-                    file_data['content'],
-                    file_date
-                )
-                self.storage.write(
-                    layer=Layer.RAW,
-                    database=self.output_file.database,
-                    table=self.output_file.table,
-                    data=file_content,
-                    partitions=partitions,
-                    filename=filename
-                )
-
-    def normalize_file_content(self, filename: str, file_content: BytesIO, file_date: str) -> Tuple[str, BytesIO]:
-        """
-        Normalize file format before writing:
-        Convert XML/Excel to Parquet or reformat JSON lines if needed.
-        """
-        file_content.seek(0)
-        if self.incoming_file.file_format == LandingFileFormat.XML:
-            return self.convert_xml_to_parquet(filename, file_content)
-        elif self.incoming_file.file_format == LandingFileFormat.EXCEL:
-            return self.convert_excel_to_parquet(filename, file_content)
-        elif self.incoming_file.file_format == LandingFileFormat.JSON:
-            file_content = self.convert_json_to_json_lines(file_content, file_date)
-            return filename, file_content
-        else:
-            return filename, file_content
-
-    def convert_xml_to_parquet(self, filename: str, file_content: BytesIO) -> Tuple[str, BytesIO]:
-        """
-        Convert XML file content to Parquet format.
-        """
-        parquet_filename = regex_utils.change_file_extension(filename, '.parquet')
-        self.logger.info(f'Converting XML file {filename} to parquet file {parquet_filename}')
-        df = read_xml(
-            file_content,
-            encoding=self.incoming_file.xml_specs.encoding,
-            xpath=self.incoming_file.xml_specs.xpath,
-            parser='etree',
-            dtype=str
-        )
-        df = df.fillna('')
-        parquet_file_content = BytesIO()
-        df.to_parquet(parquet_file_content, index=False)
-        parquet_file_content.seek(0)
-        return parquet_filename, parquet_file_content
-
-    def convert_excel_to_parquet(self, filename: str, file_content: BytesIO) -> Tuple[str, BytesIO]:
-        """
-        Convert Excel file content to Parquet format.
-        """
-        parquet_filename = regex_utils.change_file_extension(filename, '.parquet')
-        self.logger.info(f'Converting Excel file {filename} to parquet file {parquet_filename}')
-        df = read_excel(file_content, dtype=str)
-        df = df.fillna('')
-        parquet_file_content = BytesIO()
-        df.to_parquet(parquet_file_content, index=False)
-        parquet_file_content.seek(0)
-        return parquet_filename, parquet_file_content
-
-    def convert_json_to_json_lines(self, file_content: BytesIO, file_date: str) -> BytesIO:
-        """
-        Normalize JSON file into JSON Lines format, adding partition field.
-        """
-        encoding = self.incoming_file.json_specs.encoding
-        json_content = json.load(file_content)
-        json_lines_content = BytesIO()
-
-        if isinstance(json_content, list):
-            for item in json_content:
-                item[self.output_file.partition_field] = file_date
-                json_lines_content.write(json.dumps(item).encode(encoding) + b'\n')
-        elif isinstance(json_content, dict):
-            json_content[self.output_file.partition_field] = file_date
-            json_lines_content.write(json.dumps(json_content).encode(encoding))
-
-        json_lines_content.seek(0)
-        return json_lines_content
-
-
-if __name__ == '__main__':
-    stb = ProcessingCoordinator()
-    stb.process()
-
-```
-
+### Dataflows: output
 #### src/data_framework/dataflow/output.py
-#### `src/data_framework/dataflow/output.py`
+#### `output.py`
 **Purpose:**
 This script implements the logic for generating final output files based on data residing typically in the Business layer. It reads data according to defined report configurations, formats it (CSV or JSON), applies transformations or filters, writes the formatted data to the Output storage layer, and handles notifications and error reporting for each generated output.
 
@@ -913,46 +874,10 @@ if __name__ == '__main__':
 
 
 ```
-#### src/data_framework/dataflow/staging.py
-#### `src/data_framework/dataflow/staging.py`
-**Purpose:**
-This script defines the dataflow class responsible for processing data from the Raw layer into the Staging layer of the framework. It provides a placeholder for logic that typically involves cleaning, standardizing, and possibly enriching the raw data before it moves further into the Common or Business layers.
-
-**Key parts:**
-- **`RawToStaging(DataFlowInterface)` class:** Represents the process of transforming data from the Raw layer to the Staging layer. Inherits from `DataFlowInterface`. Currently only calls the parent `__init__`. The specific `process()` logic (likely involving reading from Raw, applying transformations/validations, and writing to Staging using `CoreDataProcess`) is expected to be implemented here.
-```python
-# staging.py
-"""
-Defines the dataflow process from the Raw layer to the Staging layer
-within the Data Platform Framework.
-
-This module implements a ProcessingCoordinator class responsible
-for coordinating the movement and preparation of data at the staging level.
-"""
-
-from data_framework.modules.dataflow.interface_dataflow import DataFlowInterface
-
-
-class RawToStaging(DataFlowInterface):
-    """
-    Coordinates the dataflow from the Raw layer to the Staging layer.
-
-    Inherits shared functionality from DataFlowInterface.
-    """
-
-    def __init__(self):
-        """
-        Initialize RawToStaging by invoking the base class constructor.
-        """
-        super().__init__()  # Initialize the parent DataFlowInterface
-
-```
-
----
 
 ## The Data Framework: Modules.
 
-In this framework, modules/ is a **library of reusable, pluggable building blocks**.  
+In this framework, `modules` is a **library of reusable, pluggable building blocks**.  
 Each module provides logic for one specific responsibility in a data pipeline — like reading from storage, interacting with AWS Glue, transforming data with Spark, validating outputs, or sending monitoring metrics.
 
 They are grouped by domain (catalogue, data_process, storage, monitoring, etc.) and implement patterns like:
@@ -2612,6 +2537,23 @@ This script serves as the primary interface for data processing operations withi
 - **Class Methods (`merge`, `insert_overwrite`, `datacast`, `read_table`, `delete_from_table`, `insert_dataframe`, `join`, `create_dataframe`, `query`, `overwrite_columns`, `unfold_string_values`, `add_dynamic_column`, `stack_columns`, `is_empty`, `count_rows`, `select_columns`, `show_dataframe`):** These methods mirror the `DataProcessInterface` and simply delegate the call to the instantiated `_data_process` object.
 
 ```python
+"""
+core_data_process.py
+
+This module acts as the central access point for executing data processing tasks
+within the data framework. It uses the Facade pattern to abstract the underlying
+technology (e.g., Pandas or Spark) and exposes a unified interface for performing
+common data operations such as reading, writing, joining, transforming, and querying data.
+
+Main Class:
+    - CoreDataProcess: Provides class-level methods that delegate data processing
+      tasks to a backend implementation based on runtime configuration.
+
+Key Features:
+    - Technology-agnostic data processing
+    - Lazy initialization of the data processing backend
+    - Simplified interface for ETL workflows
+"""
 
 from data_framework.modules.code.lazy_class_property import LazyClassProperty
 from data_framework.modules.data_process.interface_data_process import (
@@ -2625,55 +2567,90 @@ from typing import List, Any
 
 
 class CoreDataProcess(object):
+    """
+    Facade class that delegates data processing operations to the correct
+    backend implementation (Pandas or Spark) depending on the configuration.
+
+    Usage:
+        CoreDataProcess.read_table(...)
+        CoreDataProcess.merge(...)
+    """
 
     @LazyClassProperty
     def _data_process(cls) -> DataProcessInterface:
+        """
+        Lazily loads and returns the appropriate data processing backend.
+
+        The backend is chosen based on the `technology` specified in the
+        configuration (e.g., EMR for Spark, LAMBDA for Pandas).
+
+        Returns:
+            DataProcessInterface: A concrete implementation such as SparkDataProcess or PandasDataProcess.
+        """
         technology = config().current_process_config().processing_specifications.technology
+
         if technology == Technologies.EMR:
+            # Import and return Spark implementation
             from data_framework.modules.data_process.integrations.spark.spark_data_process import SparkDataProcess
-
             return SparkDataProcess()
-        elif technology == Technologies.LAMBDA:
-            from data_framework.modules.data_process.integrations.pandas.pandas_data_process import PandasDataProcess
 
+        elif technology == Technologies.LAMBDA:
+            # Import and return Pandas implementation
+            from data_framework.modules.data_process.integrations.pandas.pandas_data_process import PandasDataProcess
             return PandasDataProcess()
 
-    @classmethod
-    def merge(cls, dataframe: Any, table_config: DatabaseTable, custom_strategy: str = None) -> WriteResponse:
-        return cls._data_process.merge(
-            dataframe=dataframe,
-            table_config=table_config,
-            custom_strategy=custom_strategy
-        )
+    
+    
+    """
+    @classmethod is a method that is bound to the class, not the instance. It receives the class as its first argument, conventionally named cls.
+
+    When to Use @classmethod? Use @classmethod when:
+
+    - The method needs access to class attributes (like _data_process) or factory methods.
+    - You want the method to work at the class level instead of instance level.
+    
+    """
     
     @classmethod
-    def insert_overwrite(cls, dataframe: Any, table_config: DatabaseTable) -> WriteResponse:
-        return cls._data_process.insert_overwrite(
-            dataframe=dataframe,
-            table_config=table_config
-        )
+    def merge(cls, dataframe: Any, table_config: DatabaseTable, custom_strategy: str = None) -> WriteResponse:
+        """
+        Merges a dataframe into the target table using a custom strategy if provided.
+        """
+        return cls._data_process.merge(dataframe=dataframe, table_config=table_config, custom_strategy=custom_strategy)
 
     @classmethod
-    def datacast(
-        cls,
-        table_source: DatabaseTable,
-        table_target: DatabaseTable
-    ) -> ReadResponse:
-        return cls._data_process.datacast(
-            table_source=table_source,
-            table_target=table_target
-        )
+    def insert_overwrite(cls, dataframe: Any, table_config: DatabaseTable) -> WriteResponse:
+        """
+        Inserts the dataframe into the target table, replacing existing data.
+        """
+        return cls._data_process.insert_overwrite(dataframe=dataframe, table_config=table_config)
+
+    @classmethod
+    def datacast(cls, table_source: DatabaseTable, table_target: DatabaseTable) -> ReadResponse:
+        """
+        Casts the schema of the source table to match the target table.
+        """
+        return cls._data_process.datacast(table_source=table_source, table_target=table_target)
 
     @classmethod
     def read_table(cls, database: str, table: str, filter: str = None, columns: List[str] = None) -> ReadResponse:
+        """
+        Reads data from a database table with optional filtering and column selection.
+        """
         return cls._data_process.read_table(database=database, table=table, filter=filter, columns=columns)
 
     @classmethod
     def delete_from_table(cls, table_config: DatabaseTable, _filter: str) -> WriteResponse:
+        """
+        Deletes rows from a table based on a given filter condition.
+        """
         return cls._data_process.delete_from_table(table_config=table_config, _filter=_filter)
 
     @classmethod
     def insert_dataframe(cls, dataframe: Any, table_config: DatabaseTable) -> WriteResponse:
+        """
+        Inserts a dataframe into a target table without replacing existing data.
+        """
         return cls._data_process.insert_dataframe(dataframe=dataframe, table_config=table_config)
 
     @classmethod
@@ -2687,6 +2664,12 @@ class CoreDataProcess(object):
         left_suffix: str = '_df_1',
         right_suffix: str = '_df_2'
     ) -> ReadResponse:
+        """
+        Joins two dataframes using the specified join strategy and join keys.
+
+        Parameters:
+            how (str): Type of join: 'inner', 'left', 'right', 'outer', etc.
+        """
         return cls._data_process.join(
             df_1=df_1,
             df_2=df_2,
@@ -2699,10 +2682,16 @@ class CoreDataProcess(object):
 
     @classmethod
     def create_dataframe(cls, data: Any, schema: str = None) -> ReadResponse:
+        """
+        Creates a new dataframe from raw data, optionally applying a schema.
+        """
         return cls._data_process.create_dataframe(data=data, schema=schema)
 
     @classmethod
     def query(cls, sql: str) -> ReadResponse:
+        """
+        Executes a SQL query and returns the result as a dataframe.
+        """
         return cls._data_process.query(sql=sql)
 
     @classmethod
@@ -2714,6 +2703,12 @@ class CoreDataProcess(object):
         default_column_suffix: str,
         drop_columns: bool = True
     ) -> ReadResponse:
+        """
+        Replaces columns in the dataframe using suffix logic to avoid collisions.
+
+        Parameters:
+            drop_columns (bool): Whether to drop the original columns after overwriting.
+        """
         return cls._data_process.overwrite_columns(
             dataframe=dataframe,
             columns=columns,
@@ -2724,9 +2719,10 @@ class CoreDataProcess(object):
 
     @classmethod
     def unfold_string_values(cls, dataframe: Any, column_name: str, separator: str) -> ReadResponse:
-        return cls._data_process.unfold_string_values(
-            dataframe=dataframe, column_name=column_name, separator=separator
-        )
+        """
+        Splits string values in a column by a separator and expands them into rows.
+        """
+        return cls._data_process.unfold_string_values(dataframe=dataframe, column_name=column_name, separator=separator)
 
     @classmethod
     def add_dynamic_column(
@@ -2737,6 +2733,11 @@ class CoreDataProcess(object):
         available_columns: List[str],
         default_value: Any = None
     ) -> ReadResponse:
+        """
+        Adds a new column based on logic involving another column and a set of candidates.
+
+        Typically used for dynamic transformations such as fallback lookups.
+        """
         return cls._data_process.add_dynamic_column(
             dataframe=dataframe,
             new_column=new_column,
@@ -2752,6 +2753,9 @@ class CoreDataProcess(object):
         source_columns: List[str],
         target_columns: List[str]
     ) -> ReadResponse:
+        """
+        Combines values from multiple columns into repeated rows with a consistent schema.
+        """
         return cls._data_process.stack_columns(
             dataframe=dataframe,
             source_columns=source_columns,
@@ -2760,23 +2764,34 @@ class CoreDataProcess(object):
 
     @classmethod
     def is_empty(cls, dataframe: Any) -> bool:
+        """
+        Returns True if the dataframe has no rows; otherwise False.
+        """
         return cls._data_process.is_empty(dataframe=dataframe)
 
     @classmethod
     def count_rows(cls, dataframe: Any) -> int:
+        """
+        Returns the number of rows in the dataframe.
+        """
         return cls._data_process.count_rows(dataframe=dataframe)
 
     @classmethod
     def select_columns(cls, dataframe: Any, columns: List[str]) -> ReadResponse:
+        """
+        Selects a subset of columns from the dataframe.
+        """
         return cls._data_process.select_columns(dataframe=dataframe, columns=columns)
 
     @classmethod
     def show_dataframe(cls, dataframe: Any) -> WriteResponse:
+        """
+        Displays the dataframe, useful for debugging or validation during development.
+        """
         return cls._data_process.show_dataframe(dataframe=dataframe)
 
 
 ```
-
 
 #### src/data_framework/modules/data_process/helpers/athena.py
 #### `athena.py`
@@ -4394,9 +4409,9 @@ class DataProcessInterface(ABC):
 
 
 #### src/data_framework/modules/dataflow/interface_dataflow.py
-#### `src/data_framework/modules/dataflow/interface_dataflow.py`
+#### `interface_dataflow.py`
 **Purpose:**
-This script defines the abstract base class (`DataFlowInterface`) that serves as the blueprint for all specific dataflow process implementations (e.g., LandingDataFlow, StagingDataFlow). It ensures a consistent structure and provides shared initialization logic, access to core framework components, helper methods for common tasks, and standardized ways to report results and metrics.
+This script defines the abstract base class `DataFlowInterface` that serves as the blueprint for all specific dataflow process implementations (e.g., LandingDataFlow, StagingDataFlow). It ensures a consistent structure and provides shared initialization logic, access to core framework components, helper methods for common tasks, and standardized ways to report results and metrics.
 
 **Key parts:**
 - **Dataclasses (`DataQualityTable`, `DataQuality`, `OutputResponse`, `PayloadResponse`):** Define standard structures for reporting data quality check targets, individual output results, and the overall payload summarizing the process execution outcome (success, next stage trigger, file info, DQ info, output results, notifications). `PayloadResponse` includes a method `get_failed_outputs`.
@@ -4416,6 +4431,22 @@ This script defines the abstract base class (`DataFlowInterface`) that serves as
     - **`save_monitorization(self)`:** Calculates process duration and tracks standard end-of-process metrics (`PROCESS_END_EVENT`, `PROCESS_DURATION`) using `CoreMonitoring`. Includes commented-out logic for a potential `DATAFLOW_END_EVENT`.
     - **`save_payload_response(self)`:** Compiles the final `PayloadResponse` (including identified data quality tables and notifications to send), converts it to JSON, and attempts to save it to AWS SSM Parameter Store under a structured name (`/dataflow/{project_id}/{dataflow}-{process}/result`). Handles potential SSM or payload generation errors (`SSMError`, `PayloadResponseError`).
 ```python
+"""
+interface_dataflow.py
+
+This module defines the abstract base class `DataFlowInterface` used as the foundation
+for all specific dataflow implementations in the data processing framework.
+
+Purpose:
+    - Standardizes initialization and structure across all dataflow classes.
+    - Provides access to core services (configuration, logging, data processing, validation, notifications, monitoring).
+    - Defines helper methods to simplify repetitive ETL operations like reading, writing, casting, and tracking.
+    - Collects and stores process execution metadata, metrics, and quality results.
+
+Key Components:
+    - Data classes for reporting and payloads: `DataQualityTable`, `DataQuality`, `OutputResponse`, `PayloadResponse`
+    - Abstract base class `DataFlowInterface` with mandatory and reusable behaviors
+"""
 
 from abc import ABC
 from data_framework.modules.config.core import config, Config
@@ -4447,17 +4478,20 @@ import json
 import time
 
 
+# Data structure for defining a table to include in data quality checks
 @dataclass
 class DataQualityTable:
     database: str
     table: str
 
 
+# Group of quality check tables
 @dataclass
 class DataQuality:
     tables: List[DataQualityTable] = field(default_factory=list)
 
 
+# Output report for a single task or dataset
 @dataclass
 class OutputResponse:
     name: str
@@ -4465,6 +4499,7 @@ class OutputResponse:
     error: Any = None
 
 
+# Main output payload summarizing the result of a dataflow process
 @dataclass
 class PayloadResponse:
     success: bool = False
@@ -4476,16 +4511,32 @@ class PayloadResponse:
     notifications: Optional[List[NotificationToSend]] = field(default_factory=list)
 
     def get_failed_outputs(self) -> List[str]:
-        failed_outputs = [
+        """
+        Returns a list of names for outputs that failed during the process.
+        """
+        return [
             output.name
             for output in self.outputs
             if not output.success
         ]
-        return failed_outputs
 
 
 class DataFlowInterface(ABC):
+    """
+    Abstract base class for all dataflow processes. Defines a consistent structure and
+    initializes the core framework components required for ETL operations.
 
+    Subclasses must implement:
+        - `process()`: defines the logic specific to the dataflow stage.
+
+    Provides:
+        - Initialized services (e.g., config, logger, processing, notifications)
+        - Access to input/output table configs
+        - Helpers for reading, writing, casting
+        - Metrics and payload tracking
+    """
+
+    # Property accessors for various initialized components
     @property
     def config(self) -> Config:
         return self.__config
@@ -4531,6 +4582,13 @@ class DataFlowInterface(ABC):
         return self.__current_process_config.output_reports
 
     def __init__(self):
+        """
+        Initializes the dataflow process environment:
+            - Loads config and process definition
+            - Sets up core services (data processing, validation, notifications, monitoring)
+            - Tracks start time and emits initial metrics
+            - Prepares SSM client for result persistence
+        """
         try:
             self.__config = config()
             self.__current_process_config = self.__config.current_process_config()
@@ -4542,6 +4600,7 @@ class DataFlowInterface(ABC):
             self.__ssm_client = boto3.client('ssm', region_name=self.config.parameters.region)
             self.__monitoring = CoreMonitoring()
 
+            # Emit start-of-dataflow event if this is the first process in the chain
             if self.config.is_first_process:
                 self.__monitoring.track_process_metric(
                     name=MetricNames.DATAFLOW_START_EVENT,
@@ -4549,80 +4608,90 @@ class DataFlowInterface(ABC):
                 )
 
             self.__start_process = time.time()
+
         except Exception:
             raise DataflowInitializationError()
 
     def process(self):
+        """
+        Abstract method for the main dataflow logic. Must be implemented by all subclasses.
+        """
         raise NotImplementedError('It is mandatory to implement process() function')
 
     def vars(self, name: str):
+        """
+        Retrieve a named variable from the `vars` section of the process configuration.
+        """
         return self.__current_process_config.vars.get_variable(name=name)
 
-    def read_table_with_casting(
-        self,
-        name_of_raw_table: str,
-        name_of_staging_table_to_casting: str = None
-    ) -> Any:
+    def read_table_with_casting(self, name_of_raw_table: str, name_of_staging_table_to_casting: str = None) -> Any:
+        """
+        Reads a raw table and casts it to match the schema of a staging target table.
+        Logs metadata depending on execution mode (FULL or PARTITIONED).
+        """
         input_table = self.source_tables.table(name_of_raw_table)
-        name_of_staging_table_to_casting = (
-            name_of_staging_table_to_casting
-            if name_of_staging_table_to_casting
-            else name_of_raw_table
-        )
+        name_of_staging_table_to_casting = name_of_staging_table_to_casting or name_of_raw_table
         execution_mode = self.config.parameters.execution_mode
         casting_table = self.target_tables.table(name_of_staging_table_to_casting)
-        response = self.data_process.datacast(
-            table_source=input_table,
-            table_target=casting_table
-        )
+
+        response = self.data_process.datacast(table_source=input_table, table_target=casting_table)
         df = response.data
+
         if execution_mode == ExecutionMode.FULL:
-            self.logger.info(
-                f'[ExecutionMode:{execution_mode.value}] Read from {input_table.full_name}'
-            )
+            self.logger.info(f'[ExecutionMode:{execution_mode.value}] Read from {input_table.full_name}')
         else:
             self.logger.info(
-                f"[ExecutionMode:{execution_mode.value}] Read {df.count()} rows " +
+                f"[ExecutionMode:{execution_mode.value}] Read {df.count()} rows "
                 f"from {input_table.full_name} with partition {input_table.sql_where}"
             )
         return df
 
     def read_table(self, name_of_table: str) -> Any:
+        """
+        Reads a table using standard read logic. Applies filter depending on execution mode.
+        Logs the result.
+        """
         input_table = self.source_tables.table(name_of_table)
         execution_mode = self.config.parameters.execution_mode
-        sql_where = input_table.sql_where
-        if execution_mode == ExecutionMode.FULL.value:
-            sql_where = None
+        sql_where = None if execution_mode == ExecutionMode.FULL.value else input_table.sql_where
+
         response = self.data_process.read_table(
             database=input_table.database_relation,
             table=input_table.table,
             filter=sql_where
         )
         df = response.data
+
         if execution_mode == ExecutionMode.FULL.value:
             self.logger.info(
                 f'[ExecutionMode:{execution_mode}] Read {df.count()} rows from {input_table.full_name}'
             )
         else:
             self.logger.info(
-                f"[ExecutionMode:{execution_mode}] Read {df.count()} rows " +
+                f"[ExecutionMode:{execution_mode}] Read {df.count()} rows "
                 f"from {input_table.full_name} with partition {sql_where}"
             )
         return df
 
     def write(self, df: Any, output_table_key: str) -> None:
+        """
+        Writes a DataFrame to the specified output table using `merge`.
+        Logs success. TODO: Primary keys are assumed; may require dynamic lookup.
+        """
         output_table = self.target_tables.table(output_table_key)
         self.data_process.merge(
             df,
             output_table.database_relation,
             output_table.table,
-            # TODO: obtain primary keys from Glue table
-            output_table.primary_keys
+            output_table.primary_keys  # Assumes these are known; may need to extract from schema
         )
         self.logger.info(f'Successfully inserted data into {output_table.full_name}')
 
     def save_monitorization(self):
-
+        """
+        Tracks metrics for end-of-process status and total duration.
+        Optionally tracks DATAFLOW_END_EVENT if this is the last process.
+        """
         seconds = time.time() - self.__start_process
 
         self.__monitoring.track_process_metric(
@@ -4636,7 +4705,8 @@ class DataFlowInterface(ABC):
             value=seconds
         )
 
-        # if self.config.has_next_process == False:
+        # Future extension: add end-of-dataflow marker
+        # if not self.config.has_next_process:
         #     self.__monitoring.track_process_metric(
         #         name=MetricNames.DATAFLOW_END_EVENT,
         #         value=1,
@@ -4644,7 +4714,17 @@ class DataFlowInterface(ABC):
         #     )
 
     def save_payload_response(self):
+        """
+        Compiles and saves the payload response for the current process:
+            - Adds data quality tables
+            - Attaches notification list
+            - Converts payload to JSON
+            - Saves JSON to AWS SSM under a structured name
+
+        Handles and raises structured errors (SSMError, PayloadResponseError).
+        """
         try:
+            # Populate data quality table info based on stage
             if self.config.parameters.process == 'landing_to_raw':
                 dq_table = DataQualityTable(
                     database=self.__current_process_config.output_file.database.value,
@@ -4652,23 +4732,26 @@ class DataFlowInterface(ABC):
                 )
                 self.payload_response.data_quality.tables.append(dq_table)
             elif self.config.parameters.process != 'business_to_output':
-                for tale_name in self.__current_process_config.target_tables.tables:
-                    table_info = self.__current_process_config.target_tables.table(table_key=tale_name)
+                for table_name in self.__current_process_config.target_tables.tables:
+                    table_info = self.__current_process_config.target_tables.table(table_key=table_name)
                     dq_table = DataQualityTable(
                         database=table_info.database.value,
                         table=table_info.table
                     )
-
                     self.payload_response.data_quality.tables.append(dq_table)
-            # Add notifications to send
+
+            # Add any pending notifications
             self.payload_response.notifications = self.__notifications.get_notifications_to_send()
-            # Convert to JSON
+
+            # Serialize response to JSON
             payload_json = json.dumps(asdict(self.payload_response), ensure_ascii=False, indent=2)
+
+            # Store in AWS SSM
+            ssm_name = (
+                f'/dataflow/{self.config.project_id}/'
+                f'{self.config.parameters.dataflow}-{self.config.parameters.process}/result'
+            )
             try:
-                ssm_name = (
-                    f'/dataflow/{self.config.project_id}/' +
-                    f'{self.config.parameters.dataflow}-{self.config.parameters.process}/result'
-                )
                 self.__ssm_client.put_parameter(
                     Name=ssm_name,
                     Value=payload_json,
@@ -4677,15 +4760,13 @@ class DataFlowInterface(ABC):
                 )
             except Exception:
                 raise SSMError(error_message=f'Error saving parameter {ssm_name} in SSM')
+
         except Exception:
             raise PayloadResponseError()
-
 
 ```
 
 
-
-### DF Modules: Exception
 ### DF Modules: exception
 #### Summary
 This module defines a comprehensive set of custom exception classes used throughout the Data Framework. It establishes a clear error hierarchy, starting with a base `DataFrameworkError`, and provides specific exceptions for errors related to configuration, AWS services (S3, Glue, Athena, etc.), data catalogue operations, data processing tasks, dataflow execution, storage operations, validation rules, notifications, and specific processing steps like landing and output generation. This structured approach facilitates specific error handling and provides informative error messages for debugging.
@@ -5453,7 +5534,7 @@ class InvalidDataFrameError(DataFrameworkError):
 
 ```
 
-### DF Modules: Monitoring
+
 ### DF Modules: monitoring
 #### Summary
 This module provides the framework's monitoring capabilities. It defines a standard interface (`MonitoringInterface`) and data structures (`Metric`, `MetricNames`, `MetricUnits`) for tracking operational metrics. A core facade (`CoreMonitoring`) dynamically loads and delegates to specific implementations, with the initial implementation targeting AWS CloudWatch (`AWSCloudWatch`). This allows tracking of metrics related to dataflow processes, table operations (reads/writes), and computational resources, sending them to CloudWatch with standardized dimensions.
@@ -5867,7 +5948,31 @@ class MonitoringInterface(ABC):
 ```
 
 ### DF Modules: Notifications
+#### Summary
+The Notifications module manages the creation, configuration, validation, and sending of notifications (specifically emails) during data workflows. It supports dynamic notification generation, validation against configurable limits, and adapts message formatting based on the environment.
+
+#### What the "Notifications" module does (big picture)
+- **Goal:** Provide a standardized system for preparing and dispatching notifications within data processes.
+- **Why it matters:** Ensures stakeholders are informed of process statuses, errors, or key events with configurable, environment-aware messaging.
+- **How:** Defines notification interfaces, core logic for managing and validating notifications, and implements notification dispatching through dynamic configurations and a queuing system.
+
+#### Notifications Module High-Level: Script by Script
+| Script             | What it is        | What it does |
+| :----------------- | :---------------- | :----------- |
+| `[core_notifications.py]` | Core Logic | Acts as a facade to send and retrieve notifications, utilizing lazy initialization. |
+| `[interface_notifications.py]` | Interface | Defines abstract structures and data models for notifications. |
+| `[notifications.py]` | Core Implementation | Manages combining configurations, formatting, validating, and queuing notifications for dispatch. |
+
+
 #### src/data_framework/modules/notification/core_notifications.py
+#### `[core_notifications.py]`
+**Purpose:**
+Provides a simplified access point to manage notifications by wrapping the `Notifications` class with lazy loading and class methods.
+
+**Key parts:**
+- `CoreNotifications` class: Core wrapper exposing `send_notification` and `get_notifications_to_send` methods.
+- `LazyClassProperty` usage: Ensures the underlying `Notifications` object is loaded only when needed.
+
 ```python
 
 from data_framework.modules.code.lazy_class_property import LazyClassProperty
@@ -5900,6 +6005,14 @@ class CoreNotifications(object):
 ```
 
 #### src/data_framework/modules/notification/interface_notifications.py
+#### `[interface_notifications.py]`
+**Purpose:**
+Defines the data structures, types, and abstract methods necessary for a notifications system to ensure consistency and loose coupling.
+
+**Key parts:**
+- `NotificationType` and `Topic` Enums: Standardizes notification types and topics.
+- `Notification`, `NotificationToSend`, `NotificationDict`, `NotificationsParameters`, `DataFrameworkNotifications` dataclasses: Define the structure for notifications and related parameters.
+- `InterfaceNotifications` ABC: Specifies required methods (`send_notification`, `get_notifications_to_send`) for notification handlers.
 ```python
 
 from data_framework.modules.exception.notification_exceptions import NotificationNotFoundError
@@ -5979,6 +6092,18 @@ class InterfaceNotifications(ABC):
 ```
 
 #### src/data_framework/modules/notification/notifications.py
+#### `[notifications.py]`
+**Purpose:**
+Implements the notification handling logic including combining default and custom notifications, validating content length, formatting messages, and queuing notifications for sending.
+
+**Key parts:**
+- `Notifications` class: Implements `InterfaceNotifications`.
+- `_combine_notifications`: Merges default and custom notifications safely.
+- `send_notification`: Dispatches a notification after formatting and validation.
+- `_send_email_notification`, `_format_subject`, `_format_body`: Helper methods for constructing and formatting messages.
+- `_validate_subject_length`, `_validate_body_length`: Enforce configured limits on notification size.
+- `_add_notification`: Queues a notification, respecting maximum queue size.
+- `get_notifications_to_send`: Returns all queued notifications ready to be sent.
 ```python
 
 from data_framework.modules.config.core import config
@@ -6095,7 +6220,6 @@ class Notifications(InterfaceNotifications):
 
 ```
 
-### DF Modules: Storage
 ### DF Modules: storage
 #### Summary
 This module provides an abstraction layer for interacting with different storage systems. It defines a common interface (`CoreStorageInterface`) for file and object operations like reading, writing, and listing files within predefined logical layers (Landing, Raw, Staging, etc.). It includes concrete implementations for interacting with the local filesystem (`LocalStorage`) and AWS S3 (`S3Storage`).
@@ -6662,7 +6786,7 @@ class CoreStorageInterface(ABC):
 
 ```
 
-### DF Modules: Utils
+
 ### DF Modules: utils
 #### Summary
 This module provides a collection of general-purpose utilities and shared components used throughout the Data Framework. It includes a simple mechanism for conditional debugging based on environment configuration, a standardized singleton logger setup for consistent logging across the framework, and helper functions leveraging regular expressions for common string manipulations.

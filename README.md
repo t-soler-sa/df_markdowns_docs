@@ -225,10 +225,6 @@ The launcher will dynamically select the correct ProcessingCoordinator class. Ea
 
 ## Updated Prommpt
 
-Okay, here is a prompt optimized for an LLM, incorporating your requirements and including the instruction to process a README file first. You can copy and paste this entire block into your target LLM (like ChatGPT).
-
-BEGIN PROMPT TO COPY-PASTE
-
 You are an AI assistant acting as a technical writer. Your primary task is to generate structured, raw Markdown documentation for Python modules within a specific software framework. I will provide you with the necessary Python scripts and the project's README for context.
 
 Project Context:

@@ -1,121 +1,9 @@
 # DataplatFormFramework
 
 
-## Table of Contents
-
-* [setup.py](#setup.py)
-* [src__init__.py](#src__init__.py)
-* src
-  * [data_framework__init__.py](#srcdata_framework__init__.py)
-  * data_framework
-    * [dataflow__init__.py](#srcdata_frameworkdataflow__init__.py)
-    * dataflow
-      * [business.py](#srcdata_frameworkdataflowbusiness.py)
-      * [common.py](#srcdata_frameworkdataflowcommon.py)
-      * [landing.py](#srcdata_frameworkdataflowlanding.py)
-      * [output.py](#srcdata_frameworkdataflowoutput.py)
-      * [staging.py](#srcdata_frameworkdataflowstaging.py)
-    * [modules__init__.py](#srcdata_frameworkmodules__init__.py)
-    * modules
-      * catalogue
-        * [catalogue__init__.py](#srcdata_frameworkmodulescatalogue__init__.py)
-        * [core_catalogue.py](#srcdata_frameworkmodulescataloguecore_catalogue.py)
-        * integrations
-          * [integrations__init__.py](#srcdata_frameworkmodulescatalogueintegrations__init__.py)
-          * [aws_glue.py](#srcdata_frameworkmodulescatalogueintegrationsaws_glue.py)
-        * [interface_catalogue.py](#srcdata_frameworkmodulescatalogueinterface_catalogue.py)
-      * code
-        * [code__init__.py](#srcdata_frameworkmodulescode__init__.py)
-        * [lazy_class_property.py](#srcdata_frameworkmodulescodelazy_class_property.py)
-      * config
-        * [config__init__.py](#srcdata_frameworkmodulesconfig__init__.py)
-        * [core.py](#srcdata_frameworkmodulesconfigcore.py)
-        * model
-          * [model__init__.py](#srcdata_frameworkmodulesconfigmodel__init__.py)
-          * [flows.py](#srcdata_frameworkmodulesconfigmodelflows.py)
-      * data_process
-        * [data_process__init__.py](#srcdata_frameworkmodulesdata_process__init__.py)
-        * [core_data_process.py](#srcdata_frameworkmodulesdata_processcore_data_process.py)
-        * helpers
-          * [helpers__init__.py](#srcdata_frameworkmodulesdata_processhelpers__init__.py)
-          * [athena.py](#srcdata_frameworkmodulesdata_processhelpersathena.py)
-          * [cast.py](#srcdata_frameworkmodulesdata_processhelperscast.py)
-        * integrations
-          * [integrations__init__.py](#srcdata_frameworkmodulesdata_processintegrations__init__.py)
-          * pandas
-            * [pandas_data_process.py](#srcdata_frameworkmodulesdata_processintegrationspandaspandas_data_process.py)
-          * spark
-            * [spark__init__.py](#srcdata_frameworkmodulesdata_processintegrationsspark__init__.py)
-            * [dynamic_config.py](#srcdata_frameworkmodulesdata_processintegrationssparkdynamic_config.py)
-            * [spark_data_process.py](#srcdata_frameworkmodulesdata_processintegrationssparkspark_data_process.py)
-            * transformations
-              * [transformations__init__.py](#srcdata_frameworkmodulesdata_processintegrationssparktransformations__init__.py)
-              * [parse_dates.py](#srcdata_frameworkmodulesdata_processintegrationssparktransformationsparse_dates.py)
-            * [utils.py](#srcdata_frameworkmodulesdata_processintegrationssparkutils.py)
-        * [interface_data_process.py](#srcdata_frameworkmodulesdata_processinterface_data_process.py)
-      * dataflow
-        * [dataflow__init__.py](#srcdata_frameworkmodulesdataflow__init__.py)
-        * [interface_dataflow.py](#srcdata_frameworkmodulesdataflowinterface_dataflow.py)
-      * exception
-        * [exception__init__.py](#srcdata_frameworkmodulesexception__init__.py)
-        * [aws_exceptions.py](#srcdata_frameworkmodulesexceptionaws_exceptions.py)
-        * [catalogue_exceptions.py](#srcdata_frameworkmodulesexceptioncatalogue_exceptions.py)
-        * [config_exceptions.py](#srcdata_frameworkmodulesexceptionconfig_exceptions.py)
-        * [data_process_exceptions.py](#srcdata_frameworkmodulesexceptiondata_process_exceptions.py)
-        * [dataflow_exceptions.py](#srcdata_frameworkmodulesexceptiondataflow_exceptions.py)
-        * [generic_exceptions.py](#srcdata_frameworkmodulesexceptiongeneric_exceptions.py)
-        * [landing_exceptions.py](#srcdata_frameworkmodulesexceptionlanding_exceptions.py)
-        * [notification_exceptions.py](#srcdata_frameworkmodulesexceptionnotification_exceptions.py)
-        * [output_exceptions.py](#srcdata_frameworkmodulesexceptionoutput_exceptions.py)
-        * [storage_exceptions.py](#srcdata_frameworkmodulesexceptionstorage_exceptions.py)
-        * [validation_exceptions.py](#srcdata_frameworkmodulesexceptionvalidation_exceptions.py)
-      * monitoring
-        * [core_monitoring.py](#srcdata_frameworkmodulesmonitoringcore_monitoring.py)
-        * integrations
-          * aws_cloudwatch
-            * [aws_cloudwatch_monitoring.py](#srcdata_frameworkmodulesmonitoringintegrationsaws_cloudwatchaws_cloudwatch_monitoring.py)
-        * [interface_monitoring.py](#srcdata_frameworkmodulesmonitoringinterface_monitoring.py)
-      * notification
-        * [notification__init__.py](#srcdata_frameworkmodulesnotification__init__.py)
-        * [core_notifications.py](#srcdata_frameworkmodulesnotificationcore_notifications.py)
-        * [interface_notifications.py](#srcdata_frameworkmodulesnotificationinterface_notifications.py)
-        * [notifications.py](#srcdata_frameworkmodulesnotificationnotifications.py)
-      * storage
-        * [storage__init__.py](#srcdata_frameworkmodulesstorage__init__.py)
-        * [core_storage.py](#srcdata_frameworkmodulesstoragecore_storage.py)
-        * integrations
-          * [local_storage.py](#srcdata_frameworkmodulesstorageintegrationslocal_storage.py)
-          * [s3_storage.py](#srcdata_frameworkmodulesstorageintegrationss3_storage.py)
-        * [interface_storage.py](#srcdata_frameworkmodulesstorageinterface_storage.py)
-      * utils
-        * [utils__init__.py](#srcdata_frameworkmodulesutils__init__.py)
-        * [debug.py](#srcdata_frameworkmodulesutilsdebug.py)
-        * [logger.py](#srcdata_frameworkmodulesutilslogger.py)
-        * [regex.py](#srcdata_frameworkmodulesutilsregex.py)
-      * validation
-        * [validation__init__.py](#srcdata_frameworkmodulesvalidation__init__.py)
-        * [core_quality_controls.py](#srcdata_frameworkmodulesvalidationcore_quality_controls.py)
-        * integrations
-          * [integrations__init__.py](#srcdata_frameworkmodulesvalidationintegrations__init__.py)
-          * [file_validator.py](#srcdata_frameworkmodulesvalidationintegrationsfile_validator.py)
-          * [quality_controls.py](#srcdata_frameworkmodulesvalidationintegrationsquality_controls.py)
-        * [interface_quality_controls.py](#srcdata_frameworkmodulesvalidationinterface_quality_controls.py)
-      * tests
-        * [tests__init__.py](#srcdata_frameworktests__init__.py)
-        * resources
-          * [resources__init__.py](#srcdata_frameworktestsresources__init__.py)
-          * configs
-            * [configs__init__.py](#srcdata_frameworktestsresourcesconfigs__init__.py)
-        * [test_utils.py](#srcdata_frameworkteststest_utils.py)
-  * launchers
-    * [emr_launcher.py](#srclaunchersemr_launcher.py)
-* [tools/init.py](#toolsinit.py)
-
-
-
-## setup.py
+---
+## File: ./setup.py
 ```python
-
 from setuptools import setup, find_packages
 
 setup(
@@ -133,15 +21,12 @@ setup(
     package_dir={'': 'src'},
     include_package_data=True
 )
-
 ```
 
-## src__init__.py
-## src/data_framework__init__.py
-## src/data_framework/dataflow__init__.py
-## src/data_framework/dataflow/business.py
-```python
 
+---
+## File: ./src/data_framework/dataflow/business.py
+```python
 from data_framework.modules.dataflow.interface_dataflow import DataFlowInterface
 
 
@@ -155,12 +40,12 @@ class CommonToBusiness(DataFlowInterface):
 
     def __init__(self):
         super().__init__()
-
 ```
 
-## src/data_framework/dataflow/common.py
-```python
 
+---
+## File: ./src/data_framework/dataflow/common.py
+```python
 from data_framework.modules.dataflow.interface_dataflow import DataFlowInterface
 
 
@@ -169,11 +54,24 @@ class StagingToCommon(DataFlowInterface):
     def __init__(self):
         super().__init__()
 
-
 ```
 
-## src/data_framework/dataflow/landing.py
+
+---
+## File: ./src/data_framework/dataflow/landing.py
 ```python
+# landing.py
+"""
+Coordinates the data ingestion from the Landing layer into the Raw layer
+within the Data Platform Framework.
+
+This module implements the ProcessingCoordinator class responsible for:
+- Reading files from landing storage
+- Validating incoming files
+- Detecting duplicates based on previous files
+- Transforming files (e.g., XML/Excel/JSON) if needed
+- Writing validated data to the Raw layer
+"""
 
 from data_framework.modules.dataflow.interface_dataflow import (
     DataFlowInterface,
@@ -186,7 +84,6 @@ from data_framework.modules.config.model.flows import (
 from data_framework.modules.storage.core_storage import Storage
 from data_framework.modules.catalogue.core_catalogue import CoreCatalogue
 from data_framework.modules.storage.interface_storage import Layer
-from data_framework.modules.validation.integrations.file_validator import FileValidator
 from data_framework.modules.exception.landing_exceptions import (
     FileProcessError,
     FileReadError,
@@ -242,12 +139,10 @@ class ProcessingCoordinator(DataFlowInterface):
 
     def process_file(self):
         try:
-            self.payload_response.file_name = Path(self.parameters.source_file_path).name
             # Read file from S3
             file_contents = self.read_data()
             # Obtain file date
             file_date = self.obtain_file_date()
-            self.payload_response.file_date = file_date
             # TODO: eliminar notificación
             self.notifications.send_notification(
                 notification_name='file_arrival',
@@ -259,16 +154,13 @@ class ProcessingCoordinator(DataFlowInterface):
                 }
             )
             # Apply controls
-            file_validator = FileValidator(
-                file_date=file_date,
-                file_contents=file_contents,
-                source_file_path=self.parameters.source_file_path
-            )
-
-            self.quality_controls.set_parent(file_validator)
             response = self.quality_controls.validate(
                 layer=Layer.LANDING,
-                table_config=self.config.processes.landing_to_raw.output_file
+                table_config=self.config.processes.landing_to_raw.output_file,
+                framework_controls=True,
+                file_date=file_date,
+                file_contents=file_contents,
+                file_name=Path(self.parameters.source_file_path).name
             )
             if response.overall_result:
                 process_file = True
@@ -280,7 +172,8 @@ class ProcessingCoordinator(DataFlowInterface):
                     partitions = self.create_partitions(file_date)
                     # Save file in raw table
                     self.write_data(file_contents, partitions, file_date)
-                    self.payload_response.next_stage = True
+                    if self.config.processes.landing_to_raw.cancel_next_stage == False:
+                        self.payload_response.next_stage = True
                 self.payload_response.success = True
             else:
                 raise InvalidFileError(file_path=self.parameters.source_file_path)
@@ -391,7 +284,7 @@ class ProcessingCoordinator(DataFlowInterface):
 
     def get_file_hash(self, file_content: BytesIO, chunk_size: int = 8000):
         file_content.seek(0)
-        hasher = hashlib.md5()
+        hasher = hashlib.sha256()
         while chunk := file_content.read(chunk_size):
             hasher.update(chunk)
         hash_code = hasher.hexdigest()
@@ -426,6 +319,8 @@ class ProcessingCoordinator(DataFlowInterface):
                     partitions=partitions,
                     filename=filename
                 )
+                self.payload_response.file_name = filename
+                self.payload_response.file_date = file_date
 
     def normalize_file_content(self, filename: str, file_content: BytesIO, file_date: str) -> Tuple[str, BytesIO]:
         file_content.seek(0)
@@ -484,12 +379,12 @@ if __name__ == '__main__':
     stb = ProcessingCoordinator()
     stb.process()
 
-
 ```
 
-## src/data_framework/dataflow/output.py
-```python
 
+---
+## File: ./src/data_framework/dataflow/output.py
+```python
 from data_framework.modules.dataflow.interface_dataflow import DataFlowInterface, OutputResponse
 from data_framework.modules.storage.core_storage import Storage
 from data_framework.modules.storage.interface_storage import Layer
@@ -655,12 +550,12 @@ if __name__ == '__main__':
     output = ProcessingCoordinator()
     response = output.process()
 
-
 ```
 
-## src/data_framework/dataflow/staging.py
-```python
 
+---
+## File: ./src/data_framework/dataflow/staging.py
+```python
 from data_framework.modules.dataflow.interface_dataflow import DataFlowInterface
 
 
@@ -669,14 +564,12 @@ class RawToStaging(DataFlowInterface):
     def __init__(self):
         super().__init__()
 
-
 ```
 
-## src/data_framework/modules__init__.py
-## src/data_framework/modules/catalogue__init__.py
-## src/data_framework/modules/catalogue/core_catalogue.py
-```python
 
+---
+## File: ./src/data_framework/modules/catalogue/core_catalogue.py
+```python
 from data_framework.modules.code.lazy_class_property import LazyClassProperty
 from data_framework.modules.catalogue.interface_catalogue import (
     CatalogueInterface,
@@ -714,13 +607,12 @@ class CoreCatalogue:
             table
         )
 
-
 ```
 
-## src/data_framework/modules/catalogue/integrations__init__.py
-## src/data_framework/modules/catalogue/integrations/aws_glue.py
-```python
 
+---
+## File: ./src/data_framework/modules/catalogue/integrations/aws_glue.py
+```python
 from data_framework.modules.catalogue.interface_catalogue import (
     CatalogueInterface,
     SchemaResponse,
@@ -867,12 +759,12 @@ class CatalogueAWSGlue(CatalogueInterface):
         except Exception as e:
             raise GlueError(error_message=f'Error obtaining table {database}.{table}: {e}')
 
-
 ```
 
-## src/data_framework/modules/catalogue/interface_catalogue.py
-```python
 
+---
+## File: ./src/data_framework/modules/catalogue/interface_catalogue.py
+```python
 from abc import ABC, abstractmethod
 from typing import Union, Optional, List, Dict
 from dataclasses import dataclass
@@ -947,13 +839,30 @@ class CatalogueInterface(ABC):
         # Abstract method to write data to a specific location
         pass
 
+```
+
+
+---
+## File: ./src/data_framework/modules/code/filter_kwargs.py
+```python
+from typing import Dict, Any
+from inspect import signature
+
+
+def filter_function_kwargs(kwargs: Dict[str, Any], function: Any) -> Dict[str, Any]:
+    filtered_kwargs = {
+        key: value
+        for key, value in kwargs.items()
+        if key in signature(function).parameters
+    }
+    return filtered_kwargs
 
 ```
 
-## src/data_framework/modules/code__init__.py
-## src/data_framework/modules/code/lazy_class_property.py
-```python
 
+---
+## File: ./src/data_framework/modules/code/lazy_class_property.py
+```python
 class LazyClassProperty:
 
     def __init__(self, func):
@@ -965,13 +874,12 @@ class LazyClassProperty:
             setattr(owner, self.attr_name, self.func(owner))
         return getattr(owner, self.attr_name)
 
-
 ```
 
-## src/data_framework/modules/config__init__.py
-## src/data_framework/modules/config/core.py
-```python
 
+---
+## File: ./src/data_framework/modules/config/core.py
+```python
 from typing import Type, TypeVar, Union, get_type_hints, get_origin, get_args
 from data_framework.modules.config.model.flows import (
     Processes,
@@ -999,7 +907,8 @@ from data_framework.modules.config.model.flows import (
     Environment,
     ProcessVars,
     Casting,
-    Transformation
+    Transformation,
+    DataControl
 )
 from data_framework.modules.notification.interface_notifications import (
     NotificationDict,
@@ -1045,7 +954,7 @@ class ConfigSetup:
         DateLocatedFilename, DatabaseTable, ProcessingSpecifications,
         Hardware, SparkConfiguration,
         OutputReport, CSVSpecsReport, JSONSpecsReport,
-        VolumetricExpectation, Notification, Casting, Transformation,
+        VolumetricExpectation, Notification, Casting, Transformation, DataControl,
         DataFrameworkNotifications, NotificationsParameters
     )
 
@@ -1289,7 +1198,7 @@ class ConfigSetup:
                                 json_file=field_item,
                                 environment=environment
                             )
-                            if field_model == Transformation else
+                            if field_model in [Transformation, DataControl] else
                             cls.parse_to_model(model=field_model, json_file=field_item, environment=environment)
                             for field_item in json_file.get(field)
                         ]
@@ -1310,14 +1219,13 @@ class ConfigSetup:
 
         return model_instantiated
 
-
 ```
 
-## src/data_framework/modules/config/model__init__.py
-## src/data_framework/modules/config/model/flows.py
-```python
 
-from data_framework.modules.storage.interface_storage import Database
+---
+## File: ./src/data_framework/modules/config/model/flows.py
+```python
+from data_framework.modules.storage.interface_storage import Database, Layer
 from data_framework.modules.notification.interface_notifications import (
     NotificationDict,
     DataFrameworkNotifications
@@ -1328,7 +1236,11 @@ from data_framework.modules.exception.config_exceptions import (
     TableKeyError,
     TableConfigNotFoundError
 )
-from data_framework.modules.exception.data_process_exceptions import TransformationNotImplementedError
+from data_framework.modules.exception.data_process_exceptions import (
+    TransformationNotImplementedError,
+    DataControlNotImplementedError
+)
+from data_framework.modules.utils import regex as regex_utils
 from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Optional, List, Tuple, Union
@@ -1378,16 +1290,17 @@ class JSONSpectFormat(Enum):
     LINES = "lines"
     COLUMNS = "columns"
 
-class JSONFormat(Enum):
-    DICTIONARY = "dictionary"
-    ARRAY = "array"
-
 class CastingStrategy(Enum):
     ONE_BY_ONE = "one_by_one"
     DYNAMIC = "dynamic"
 
 class TransformationType(Enum):
     PARSE_DATES = "parse_dates"
+    FIX_CHARACTERS = "fix_incompatible_characters"
+    ADD_FILENAME_COLUMN = "add_filename_column"
+
+class DataControlType(Enum):
+    MASTER_FIELDS = "master_fields"
 
 @dataclass
 class Hardware:
@@ -1483,7 +1396,6 @@ class JSONSpecs(InterfaceSpecs):
     date_located: DateLocated
     date_located_filename: DateLocatedFilename
     source_level: Optional[str]
-    source_level_format: JSONFormat = JSONFormat.ARRAY
 
     @property
     def read_config(self) -> dict:
@@ -1556,6 +1468,7 @@ class Parameters:
     bucket_prefix: str
     file_name: Optional[str]
     file_date: Optional[str]
+    execution_id: Optional[str]
     execution_mode: ExecutionMode = ExecutionMode.DELTA
 
     @property
@@ -1583,6 +1496,27 @@ class IncomingFileLandingToRaw:
         else:
             return self.csv_specs
 
+@dataclass
+class DataControl:
+    type: DataControlType
+
+    @classmethod
+    def get_subclass_from_dict(cls, control: dict):
+        control_type = control.get('type')
+        control_mapping = {
+            DataControlType.MASTER_FIELDS.value: MasterFieldsDataControl
+        }
+        subclass = control_mapping.get(control_type)
+        if not subclass:
+            raise DataControlNotImplementedError(
+                control=control_type,
+                available_types=list(control_mapping.keys())
+            )
+        return subclass
+
+@dataclass
+class MasterFieldsDataControl(DataControl):
+    column: str
 
 @dataclass
 class Transformation:
@@ -1592,7 +1526,9 @@ class Transformation:
     def get_subclass_from_dict(cls, transformation: dict):
         transformation_type = transformation.get('type')
         transformation_mapping = {
-            TransformationType.PARSE_DATES.value: ParseDatesTransformation
+            TransformationType.PARSE_DATES.value: ParseDatesTransformation,
+            TransformationType.FIX_CHARACTERS.value: FixCharactersTransformation,
+            TransformationType.ADD_FILENAME_COLUMN.value: AddFilenameColumnTransformation,
         }
         subclass = transformation_mapping.get(transformation_type)
         if not subclass:
@@ -1611,9 +1547,19 @@ class ParseDatesTransformation(Transformation):
 
 
 @dataclass
+class FixCharactersTransformation(Transformation):
+    pass
+
+
+@dataclass
+class AddFilenameColumnTransformation(Transformation):
+    target_column: str = "internal_file_name"
+
+
+@dataclass
 class Casting:
     strategy: CastingStrategy = CastingStrategy.ONE_BY_ONE
-    fix_incompatible_characters: bool = True
+    add_missing_columns: bool = False
     master_table: Optional[str] = None
     transformations: List[Transformation] = field(default_factory=list)
 
@@ -1624,6 +1570,7 @@ class DatabaseTable:
     table: str
     primary_keys: Optional[list] = field(default_factory=list)
     casting: Casting = field(default_factory=Casting)
+    data_controls: List[DataControl] = field(default_factory=list)
     partition_field: str = "data_date"
 
     @property
@@ -1673,6 +1620,13 @@ class LandingToRaw:
     output_file: DatabaseTable
     processing_specifications: ProcessingSpecifications = field(default_factory=ProcessingSpecifications)
     notifications: NotificationDict = field(default_factory=NotificationDict)
+    cancel_next_stage: bool = False
+
+    def search_table_config(self, database: str, table: str) -> Union[DatabaseTable, None]:
+        if database == self.output_file.database.value and table == self.output_file.table:
+            return self.output_file
+        else:
+            return None
 
 
 @dataclass
@@ -1690,6 +1644,19 @@ class GenericProcess:
     processing_specifications: ProcessingSpecifications = field(default_factory=ProcessingSpecifications)
     notifications: NotificationDict = field(default_factory=NotificationDict)
     vars: Optional[ProcessVars] = field(default_factory=ProcessVars)
+
+    def search_table_config(self, database: str, table: str) -> Union[DatabaseTable, None]:
+        try:
+            table_key = self.source_tables.table_key(database, table)
+            table_config = self.source_tables.table(table_key)
+            return table_config
+        except Exception:
+            try:
+                table_key = self.target_tables.table_key(database, table)
+                table_config = self.target_tables.table(table_key)
+                return table_config
+            except Exception:
+                return None
 
 
 @dataclass
@@ -1710,9 +1677,12 @@ class OutputReport:
 
 @dataclass
 class ToOutput:
-    output_reports: List[OutputReport]
-    processing_specifications: ProcessingSpecifications
+    output_reports: List[OutputReport] = field(default_factory=list)
+    processing_specifications: ProcessingSpecifications = field(default_factory=ProcessingSpecifications)
     notifications: NotificationDict = field(default_factory=NotificationDict)
+
+    def search_table_config(self, database: str, table: str) -> None:
+        return None
 
 
 @dataclass
@@ -1768,13 +1738,24 @@ class Config:
                 available_processes=list(self.processes.__dict__.keys())
             )
 
+    @property
+    def source_layer(self) -> Layer:
+        current_process = self.parameters.process
+        layer_name = regex_utils.extract_substring(current_process, r'^[a-z]+')
+        return Layer(layer_name)
+
+    @property
+    def target_layer(self) -> Layer:
+        current_process = self.parameters.process
+        layer_name = regex_utils.extract_substring(current_process, r'[a-z]+$')
+        return Layer(layer_name)
 
 ```
 
-## src/data_framework/modules/data_process__init__.py
-## src/data_framework/modules/data_process/core_data_process.py
-```python
 
+---
+## File: ./src/data_framework/modules/data_process/core_data_process.py
+```python
 from data_framework.modules.code.lazy_class_property import LazyClassProperty
 from data_framework.modules.data_process.interface_data_process import (
     DataProcessInterface,
@@ -1936,13 +1917,12 @@ class CoreDataProcess(object):
     def show_dataframe(cls, dataframe: Any) -> WriteResponse:
         return cls._data_process.show_dataframe(dataframe=dataframe)
 
-
 ```
 
-## src/data_framework/modules/data_process/helpers__init__.py
-## src/data_framework/modules/data_process/helpers/athena.py
-```python
 
+---
+## File: ./src/data_framework/modules/data_process/helpers/athena.py
+```python
 from data_framework.modules.config.core import config
 from data_framework.modules.utils.logger import logger
 from data_framework.modules.config.model.flows import Platform
@@ -2003,12 +1983,12 @@ class AthenaClient:
         response = self.storage.read(self.layer, result_path)
         return read_csv(BytesIO(response.data))
 
-
 ```
 
-## src/data_framework/modules/data_process/helpers/cast.py
-```python
 
+---
+## File: ./src/data_framework/modules/data_process/helpers/cast.py
+```python
 """
 """
 
@@ -2028,7 +2008,7 @@ class Cast:
         self.catalogue = CoreCatalogue()
 
     def cast_columns(self, column_name: str, column_type: str) -> str:
-        if column_type in ('int', 'double', 'float', 'date', 'timestamp') or column_type.startswith('decimal'):
+        if column_type in ('int', 'bigint', 'double', 'float', 'date', 'timestamp') or column_type.startswith('decimal'):
             query = f'TRY_CAST({column_name} AS {column_type.upper()}) AS {column_name}'
         elif 'struct<' in column_type or 'array<' in column_type:
             query = f"FROM_JSON({column_name}, '{column_type}') AS {column_name}"
@@ -2048,20 +2028,38 @@ class Cast:
         self,
         source_columns: List[str],
         table_target: DatabaseTable,
+        add_missing_columns: bool,
         view_name: str = 'data_to_cast'
     ) -> str:
         try:
+            source_columns = [column.lower() for column in source_columns]
             # Obtain the target schema with the type of each column
             schema_target = self.catalogue.get_schema(table_target.database_relation, table_target.table)
             target_types = schema_target.schema.get_column_type_mapping(partitioned=True)
             # Cast each column to its target type
-            casted_columns = [
-                self.cast_columns(
-                    column_name=f"`{column}`",
-                    column_type=target_types.get(column.lower(), 'string')
-                )
-                for column in source_columns
-            ]
+            if add_missing_columns:
+                [
+                    target_types.update({column: 'string'})
+                    for column in source_columns
+                    if column not in target_types
+                ]
+                casted_columns = [
+                    self.cast_columns(
+                        column_name=f"`{column}`",
+                        column_type=target_type
+                    ) if column in source_columns
+                    else f"NULL AS `{column}`"
+                    for column, target_type in target_types.items()
+                ]
+            else:
+                casted_columns = [
+                    self.cast_columns(
+                        column_name=f"`{column}`",
+                        column_type=target_type
+                    )
+                    for column, target_type in target_types.items()
+                    if column in source_columns
+                ]
             # Build SQL query
             query = f"SELECT {', '.join(casted_columns)} FROM {view_name}"
             return query
@@ -2110,13 +2108,118 @@ class Cast:
         else:
             return str(value)
 
+```
+
+
+---
+## File: ./src/data_framework/modules/data_process/helpers/json.py
+```python
+from data_framework.modules.config.core import config
+from data_framework.modules.exception.data_process_exceptions import JsonParseError
+from typing import List, Dict, Any
+from io import BytesIO
+import json
+
+
+class JsonParser:
+
+    def __init__(self):
+        self.json_specs = config().processes.landing_to_raw.incoming_file.json_specs
+        self.formatted_keys_cache = []
+
+    def parse_json_files(self, files: List[BytesIO]) -> List[Dict[Any, Any]]:
+        try:
+            data = []
+            for file in files:
+                for line in file.readlines():
+                    json_data = json.loads(line)
+                    data += self._flatten_json(json_data)
+            return data
+        except Exception:
+            raise JsonParseError()
+
+    def _flatten_json(self, json_data: Dict[Any, Any]) -> List[Dict[Any, Any]]:
+        try:
+            for level in self.json_specs.levels:
+                if level == '*':
+                    json_data = self._flatten_all_items(json_data, level)
+                else:
+                    json_data = self._flatten_specific_item(json_data, level)
+            return json_data
+        except KeyError:
+            raise KeyError(f'Path {self.json_specs.source_level} not found in JSON file')
+
+    def _flatten_all_items(self, json_data: Dict[Any, Any], level: str) -> Dict[Any, Any]:
+        if isinstance(json_data, dict):
+            json_data = self._get_nested_items(json_data, level)
+        elif isinstance(json_data, list):
+            json_data = [
+                nested_item
+                for item in json_data
+                for nested_item in self._get_nested_items(item, level)
+            ]
+        return json_data
+
+    def _flatten_specific_item(self, json_data: Dict[Any, Any], level: str) -> Dict[Any, Any]:
+        if isinstance(json_data, dict):
+            remaining_items = self._get_remaining_items(json_data, level)
+            json_data = json_data[level]
+            if isinstance(json_data, dict):
+                json_data.update(remaining_items)
+            elif isinstance(json_data, list):
+                [item.update(remaining_items) for item in json_data if isinstance(item, dict)]
+        elif isinstance(json_data, list):
+            new_json_data = []
+            for item in json_data:
+                remaining_items = self._get_remaining_items(item, level)
+                item = item[level].copy()
+                if isinstance(item, dict):
+                    item.update(remaining_items)
+                    new_json_data.append(item)
+                elif isinstance(item, list):
+                    [element.update(remaining_items) for element in item if isinstance(element, dict)]
+                    new_json_data += item
+            json_data = new_json_data
+        return json_data
+
+    def _get_nested_items(self, dictionary: Dict[Any, Any], current_level: str) -> List[Dict[Any, Any]]:
+        nested_items = []
+        single_items = {}
+        for key, value in dictionary.items():
+            if isinstance(value, dict):
+                nested_items.append(value)
+            else:
+                single_items.update({self._format_key_path(key, current_level): str(value)})
+        [nested_item.update(single_items) for nested_item in nested_items]
+        return nested_items
+
+    def _get_remaining_items(self, dictionary: Dict[Any, Any], current_level: str) -> Dict[str, str]:
+        remaining_items = {
+            self._format_key_path(key, current_level): str(value)
+            for key, value in dictionary.items()
+            if key != current_level
+        }
+        return remaining_items
+
+    def _format_key_path(self, key: str, current_level: str) -> str:
+        if key in self.formatted_keys_cache:
+            return key
+        previous_levels = self.json_specs.levels[:self.json_specs.levels.index(current_level)]
+        if previous_levels:
+            previous_levels = [level for level in previous_levels if level != '*']
+            key_path = '_'.join(previous_levels)
+            formatted_key = f'{key_path}_{key}'
+        else:
+            formatted_key = key
+        self.formatted_keys_cache.append(formatted_key)
+        return formatted_key
 
 ```
 
-## src/data_framework/modules/data_process/integrations__init__.py
-## src/data_framework/modules/data_process/integrations/pandas/pandas_data_process.py
-```python
 
+---
+## File: ./src/data_framework/modules/data_process/integrations/pandas/pandas_data_process.py
+```python
 from data_framework.modules.data_process.interface_data_process import (
     DataProcessInterface,
     ReadResponse,
@@ -2309,13 +2412,93 @@ class PandasDataProcess(DataProcessInterface):
         pd.reset_option('display.max_rows')
         pd.reset_option('display.max_columns')
 
-
 ```
 
-## src/data_framework/modules/data_process/integrations/spark__init__.py
-## src/data_framework/modules/data_process/integrations/spark/dynamic_config.py
-```python
 
+---
+## File: ./src/data_framework/modules/data_process/integrations/spark/data_controls/master_fields.py
+```python
+from data_framework.modules.config.core import config
+from pyspark.sql import DataFrame
+import pyspark.sql.functions as f
+from data_framework.modules.data_process.core_data_process import CoreDataProcess
+from data_framework.modules.config.model.flows import (
+    MasterFieldsDataControl,
+    DatabaseTable
+)
+from data_framework.modules.notification.core_notifications import CoreNotifications
+
+def master_fields(df_source: DataFrame, data_control: MasterFieldsDataControl, target_table: DatabaseTable):
+    data_process = CoreDataProcess()
+
+    df_distinct = df_source.select(data_control.column).distinct()
+    rows = df_distinct.collect()
+
+    source_fields = [row.statistic for row in rows]
+
+    df_master_fields = data_process.query(
+        sql=f"""
+            SELECT
+                field AS field
+            FROM
+                iceberg_catalog.rl_funds_common.master_fields
+            WHERE
+                target = '{target_table.table}'
+        """
+    ).data
+
+    rows = df_master_fields.collect()
+    master_fields = [row.field for row in rows]
+
+    different_fields = list(set(source_fields) - set(master_fields))
+
+    if different_fields:
+        sql_fields = []
+        for different_field in different_fields:
+            sql_fields.append(f"SELECT '{different_field}' AS field")
+        
+        sql_final = f"""
+            WITH base AS (
+                SELECT
+                    '{target_table.table}' AS target,
+                    'common' AS layer,
+                    field,
+                    'string' AS type,
+                    'pending' AS status,
+                    CURRENT_DATE() AS inserted_at,
+                    null AS updated_at
+                FROM (
+                    {' UNION '.join(sql_fields)}
+                )
+            )
+            MERGE INTO iceberg_catalog.rl_funds_common.master_fields AS master_fields
+            USING base ON
+                base.target = master_fields.target
+                AND base.layer = master_fields.layer
+                AND base.field = master_fields.field
+            WHEN NOT MATCHED THEN
+                INSERT *
+        """
+
+        data_process.query(sql=sql_final)
+
+        notifications = CoreNotifications()
+
+        notifications.send_notification(
+            notification_name='master_fields',
+            arguments={
+                'dataflow': config().parameters.dataflow,
+                'process': config().parameters.process,
+                'table_name': target_table.table,
+                'fields': ', '.join(different_fields)[:350]
+            }
+        )
+```
+
+
+---
+## File: ./src/data_framework/modules/data_process/integrations/spark/dynamic_config.py
+```python
 import json
 
 class DynamicConfig:
@@ -2569,12 +2752,12 @@ class DynamicConfig:
         
         return config
 
-
 ```
 
-## src/data_framework/modules/data_process/integrations/spark/spark_data_process.py
-```python
 
+---
+## File: ./src/data_framework/modules/data_process/integrations/spark/spark_data_process.py
+```python
 from data_framework.modules.data_process.interface_data_process import (
     DataProcessInterface,
     ReadResponse,
@@ -2586,6 +2769,7 @@ from data_framework.modules.storage.interface_storage import Layer
 from data_framework.modules.config.core import config
 from data_framework.modules.utils.logger import logger
 from data_framework.modules.data_process.helpers.cast import Cast
+from data_framework.modules.data_process.helpers.json import JsonParser
 from data_framework.modules.catalogue.core_catalogue import CoreCatalogue
 from data_framework.modules.monitoring.core_monitoring import (
     CoreMonitoring,
@@ -2617,6 +2801,7 @@ import pyspark.sql.functions as f
 import time
 import random
 import inspect
+import secrets
 
 iceberg_exceptions = ['ConcurrentModificationExceptio', 'CommitFailedException', 'ValidationException']
 
@@ -2681,6 +2866,8 @@ class SparkDataProcess(DataProcessInterface):
                 .config(conf=spark_config) \
                 .enableHiveSupport() \
                 .getOrCreate()
+
+            self.secure_random = secrets.SystemRandom()
         except Exception:
             raise SparkConfigurationError()
         # Others
@@ -2766,7 +2953,12 @@ class SparkDataProcess(DataProcessInterface):
             self.spark.sparkContext.setJobGroup("", "", False)
 
             response = WriteResponse(success=True, error=None)
-            self._track_table_metric(table_config=table_config)
+
+            utils.apply_data_controls(
+                data_frame=dataframe,
+                target_table=table_config
+            )
+            #self._track_table_metric(table_config=table_config)
             return response
         except Exception:
             raise WriteDataError(database=table_config.database_relation, table=table_config.table)
@@ -2788,7 +2980,12 @@ class SparkDataProcess(DataProcessInterface):
             self.spark.sparkContext.setJobGroup("", "", False)
 
             response = WriteResponse(success=True, error=None)
-            self._track_table_metric(table_config=table_config)
+            #self._track_table_metric(table_config=table_config)
+
+            utils.apply_data_controls(
+                data_frame=dataframe,
+                target_table=table_config
+            )
 
             return response
         except Exception:
@@ -2811,7 +3008,7 @@ class SparkDataProcess(DataProcessInterface):
             if config().processes.landing_to_raw.incoming_file.file_format == LandingFileFormat.JSON:
                 df_raw = self._read_raw_json_file(
                     table_path=read_path.relative_base_path,
-                    partition_path=read_path.relative_path,
+                    file_path=read_path.relative_path,
                     casting_strategy=table_target.casting.strategy
                 )
             elif table_target.casting.strategy == CastingStrategy.ONE_BY_ONE:
@@ -2829,27 +3026,27 @@ class SparkDataProcess(DataProcessInterface):
                 df_raw = self._read_raw_file(base_path=read_path.base_path, data_path=read_path.path)
 
             self._track_table_metric(table_config=table_source, data_frame=df_raw)
-            df_raw = utils.apply_transformations(df_raw, table_target.casting.transformations)
-
+            df_raw = utils.apply_transformations(
+                df=df_raw,
+                transformations=table_target.casting.transformations,
+                table_target=table_target
+            )
             if table_target.casting.strategy == CastingStrategy.ONE_BY_ONE:
                 if debug_code:
                     logger.info('Schema before casting:')
                     df_raw.printSchema()
-                if table_target.casting.fix_incompatible_characters:
-                    df_raw = utils.fix_incompatible_characters(
-                        df_origin=df_raw,
-                        table_target=table_target
-                    )
                 # After reading the data as strings, each field is converted to its corresponding data type
                 view_name = 'data_to_cast'
                 df_raw.createOrReplaceTempView(view_name)
                 query = Cast().build_datacast_query(
                     source_columns=df_raw.columns,
                     table_target=table_target,
+                    add_missing_columns=table_target.casting.add_missing_columns,
                     view_name=view_name
                 )
                 df_raw = self._execute_query(query)
                 if debug_code:
+                    logger.info(f'Casting query: {query}')
                     logger.info('Schema after casting:')
                     df_raw.printSchema()
             return ReadResponse(success=True, error=None, data=df_raw)
@@ -2881,10 +3078,9 @@ class SparkDataProcess(DataProcessInterface):
         else:
             return spark_read.parquet(final_data_path)
 
-    def _read_raw_json_file(self, table_path: str, partition_path: str, casting_strategy: CastingStrategy) -> DataFrame:
+    def _read_raw_json_file(self, table_path: str, file_path: str, casting_strategy: CastingStrategy) -> DataFrame:
         # Read JSON files from S3
         if config().parameters.execution_mode == ExecutionMode.DELTA:
-            file_path = partition_path + config().parameters.file_name
             response = self.storage.read(layer=Layer.RAW, key_path=file_path)
             files = [BytesIO(response.data)]
         else:
@@ -2893,11 +3089,15 @@ class SparkDataProcess(DataProcessInterface):
                 for file_key in self.storage.list_files(layer=Layer.RAW, prefix=table_path).result
             ]
         # Parse into Python dictionaries
-        data = utils.parse_json(files)
+        data = JsonParser().parse_json_files(files)
         # Transform into a DataFrame
         if casting_strategy == CastingStrategy.ONE_BY_ONE:
+            # Obtain column names
+            columns = set()
+            [columns.update(item.keys()) for item in data]
+            if debug_code:
+                logger.info(f'Columns extracted from JSON file: {columns}')
             # All fields are converted into strings
-            columns = max(data, key=len).keys()
             schema = utils.convert_schema_to_strings(columns=columns)
             df = self.create_dataframe(data=data, schema=schema).data
             return df
@@ -2907,7 +3107,8 @@ class SparkDataProcess(DataProcessInterface):
             return df
 
     def _execute_query(self, query: str) -> DataFrame:
-        max_retries = 3
+        max_retries = 6
+
         for attempt in range(max_retries):
             try:
                 df_result = self.spark.sql(query)
@@ -2915,7 +3116,10 @@ class SparkDataProcess(DataProcessInterface):
             except Exception as exception:
                 if any(word in str(exception) for word in iceberg_exceptions) and attempt < max_retries - 1:
                     logger.warning(exception)
-                    time.sleep(random.randint(1, 20))
+                    
+                    seconds_to_sleep = self.secure_random.randrange(15, 50)
+                    logger.warning(f'[RETRY] {attempt} of {max_retries}: {seconds_to_sleep} seconds')
+                    time.sleep(seconds_to_sleep)
                 else:
                     raise exception
         return df_result
@@ -2951,7 +3155,7 @@ class SparkDataProcess(DataProcessInterface):
             # Select only necessary columns of the dataframe
             dataframe = self._select_table_columns(dataframe, table_config)
             # Insert dataframe into table
-            max_retries = 3
+            max_retries = 6
             for attempt in range(max_retries):
                 try:
                     dataframe.writeTo(table_name).append()
@@ -2959,7 +3163,10 @@ class SparkDataProcess(DataProcessInterface):
                 except Exception as exception:
                     if any(word in str(exception) for word in iceberg_exceptions) and attempt < max_retries - 1:
                         logger.warning(exception)
-                        time.sleep(random.randint(1, 20))
+
+                        seconds_to_sleep = self.secure_random.randrange(15, 50)
+                        logger.warning(f'[RETRY] {attempt} of {max_retries}: {seconds_to_sleep} seconds')
+                        time.sleep(seconds_to_sleep)
                     else:
                         raise exception
         except Exception:
@@ -2971,7 +3178,7 @@ class SparkDataProcess(DataProcessInterface):
             table=table_config.table
         )
         table_columns = table_schema.schema.get_column_names(partitioned=True)
-        dataframe = dataframe.select(*table_columns).distinct()
+        dataframe = dataframe.select([f.col(column).alias(column) for column in table_columns]).distinct()
         return dataframe
 
     def join(
@@ -3129,13 +3336,99 @@ class SparkDataProcess(DataProcessInterface):
     def show_dataframe(self, dataframe: DataFrame) -> WriteResponse:
         dataframe.show(truncate=False)
 
+```
+
+
+---
+## File: ./src/data_framework/modules/data_process/integrations/spark/transformations/add_filename_column.py
+```python
+from data_framework.modules.config.model.flows import Transformation
+from data_framework.modules.config.core import config
+from pyspark.sql import DataFrame
+import pyspark.sql.functions as f
+
+
+def add_filename_column(df: DataFrame, transformation: Transformation) -> DataFrame:
+    if config().parameters.execution_mode.is_delta:
+        df = df.withColumn(transformation.target_column, f.lit(config().parameters.file_name))
+    else:
+        pattern = r'^.+/([^/]+\..+)$'
+        df = df.withColumn('file_path', f.input_file_name()) \
+            .withColumn(transformation.target_column, f.regexp_extract('file_path', pattern, 1))
+        df = df.drop('file_path')
+    return df
 
 ```
 
-## src/data_framework/modules/data_process/integrations/spark/transformations__init__.py
-## src/data_framework/modules/data_process/integrations/spark/transformations/parse_dates.py
-```python
 
+---
+## File: ./src/data_framework/modules/data_process/integrations/spark/transformations/fix_incompatible_characters.py
+```python
+from data_framework.modules.config.model.flows import (
+    Transformation,
+    DatabaseTable
+)
+from data_framework.modules.catalogue.core_catalogue import CoreCatalogue
+from pyspark.sql import DataFrame
+import pyspark.sql.functions as f
+from pyspark.sql.types import StringType
+import re
+
+
+def fix_incompatible_characters(
+    df: DataFrame,
+    transformation: Transformation,
+    table_target: DatabaseTable
+) -> DataFrame:
+    catalogue = CoreCatalogue()
+    schema_target = catalogue.get_schema(table_target.database_relation, table_target.table).schema
+    target_columns = schema_target.get_column_type_mapping(partitioned=True)
+
+    df_modified = df
+    udf_fix_column_incompatible_characters = f.udf(fix_column_incompatible_characters, StringType())
+
+    for field in df.schema.fields:
+        new_field_name = re.sub(r'\W', '', field.name)
+        target_type = target_columns.get(field.name.lower(), 'string')
+        if 'struct<' in target_type:
+            df_modified = df_modified.withColumn(
+                field.name,
+                udf_fix_column_incompatible_characters(f.col(field.name))
+            )
+        if field.name != new_field_name:
+            df_modified = df_modified.withColumnRenamed(field.name, new_field_name)
+
+    return df_modified
+
+
+def fix_column_incompatible_characters(struct: str) -> str:
+
+    def repl(match):
+        key = match.group(1)
+        new_key = re.sub(r'\W', '', key).lower()
+        return f'"{new_key}"'
+
+    try:
+        if struct:
+            # key=value => "key": "value"
+            struct = re.sub(r'([^{},=\s]+)=([^,}]+)', r'"\1": "\2"', struct)
+            # '@key' => "key" or "@key" => "key"
+            struct = re.sub(r"[\"']([^\"']+)[\"'](?=\s*:)", repl, struct)
+            # 'key': => "key":
+            struct = re.sub(r"'([^']+)'(\s*:\s*)", r'"\1"\2', struct)
+            # :'value' => :"value"
+            struct = re.sub(r"(:\s*)'([^']+)'", r'\1"\2"', struct)
+    except Exception as e:
+        raise ValueError(f'Error formatting string {struct}: {e}')
+
+    return struct
+
+```
+
+
+---
+## File: ./src/data_framework/modules/data_process/integrations/spark/transformations/parse_dates.py
+```python
 from data_framework.modules.config.model.flows import Transformation
 from pyspark.sql import DataFrame
 import pyspark.sql.functions as f
@@ -3160,35 +3453,31 @@ def parse_dates(df: DataFrame, transformation: Transformation) -> DataFrame:
             )
     return df
 
-
 ```
 
-## src/data_framework/modules/data_process/integrations/spark/utils.py
-```python
 
+---
+## File: ./src/data_framework/modules/data_process/integrations/spark/utils.py
+```python
 from data_framework.modules.config.model.flows import (
     Transformation,
-    DatabaseTable,
-    JSONFormat
+    DatabaseTable
 )
-from data_framework.modules.config.core import config
 from data_framework.modules.exception.data_process_exceptions import (
     TransformationNotImplementedError,
-    TransformationError
+    TransformationError,
+    DataControlNotImplementedError,
+    DataControlError
 )
-from data_framework.modules.catalogue.core_catalogue import CoreCatalogue
+from data_framework.modules.code.filter_kwargs import filter_function_kwargs
 from importlib import import_module
 from typing import List, Dict, Any
-from io import BytesIO
-import pyspark.sql.functions as f
 from pyspark.sql import DataFrame
 from pyspark.sql.types import (
     StructType, StructField, StringType,
     IntegerType, FloatType, DoubleType,
     BooleanType, DateType, TimestampType
 )
-import re
-import json
 
 
 def convert_schema_to_strings(columns: List[str]) -> StructType:
@@ -3220,6 +3509,27 @@ def map_to_spark_type(db_type: str):
     return mapping.get(db_type.lower(), StringType())
 
 
+def apply_data_controls(
+    data_frame: DataFrame,
+    target_table: DatabaseTable
+):
+    for data_control in target_table.data_controls:
+        try:
+            function_name = data_control.type.value
+            module_name = f'data_framework.modules.data_process.integrations.spark.data_controls.{function_name}'
+            module = import_module(module_name)
+            transformation_function = getattr(module, function_name)
+            transformation_function(
+                df_source=data_frame,
+                data_control=data_control,
+                target_table=target_table
+            )
+        except (ModuleNotFoundError, AttributeError):
+            raise DataControlNotImplementedError(control=function_name)
+        except Exception:
+            raise DataControlError(control=function_name)
+
+
 def apply_transformations(
     df: DataFrame,
     transformations: List[Transformation],
@@ -3231,82 +3541,20 @@ def apply_transformations(
             module_name = f'data_framework.modules.data_process.integrations.spark.transformations.{function_name}'
             module = import_module(module_name)
             transformation_function = getattr(module, function_name)
-            df = transformation_function(df, transformation, **kwargs)
+            args = filter_function_kwargs(kwargs=kwargs, function=transformation_function)
+            df = transformation_function(df=df, transformation=transformation, **args)
         except (ModuleNotFoundError, AttributeError):
             raise TransformationNotImplementedError(transformation=function_name)
         except Exception:
             raise TransformationError(transformation=function_name)
     return df
 
-
-def fix_column_incompatible_characters(json):
-
-    def repl(match):
-        key = match.group(1)
-        new_key = re.sub(r'\W', '', key).lower()
-        return f'"{new_key}"'
-
-    # key=value => "key": "value"
-    json = re.sub(r'([^{},=\s]+)=([^,}]+)', r'"\1": "\2"', json)
-    # '@key' => "key" or "@key" => "key"
-    json = re.sub(r"[\"']([^\"']+)[\"'](?=\s*:)", repl, json)
-    # 'key': => "key":
-    json = re.sub(r"'([^']+)'(\s*:\s*)", r'"\1"\2', json)
-    # :'value' => :"value"
-    json = re.sub(r"(:\s*)'([^']+)'", r'\1"\2"', json)
-
-    return json
-
-
-def fix_incompatible_characters(df_origin: DataFrame, table_target: DatabaseTable) -> DataFrame:
-    catalogue = CoreCatalogue()
-    schema_target = catalogue.get_schema(table_target.database_relation, table_target.table).schema
-    target_columns = schema_target.get_column_type_mapping(partitioned=True)
-
-    df_modified = df_origin
-    udf_fix_column_incompatible_characters = f.udf(fix_column_incompatible_characters, StringType())
-
-    for field in df_origin.schema.fields:
-        new_field_name = re.sub(r'\W', '', field.name)
-        target_type = target_columns.get(field.name.lower(), 'string')
-        if 'struct<' in target_type:
-            df_modified = df_modified.withColumn(
-                field.name,
-                udf_fix_column_incompatible_characters(f.col(field.name))
-            )
-        if field.name != new_field_name:
-            df_modified = df_modified.withColumnRenamed(field.name, new_field_name)
-
-    return df_modified
-
-
-def parse_json(files: List[BytesIO]) -> List[dict]:
-    # Obtain JSON specifications
-    json_specs = config().processes.landing_to_raw.incoming_file.json_specs
-    partition_field = config().processes.landing_to_raw.output_file.partition_field
-    data = []
-    for file in files:
-        for line in file.readlines():
-            json_data = json.loads(line)
-            data_date = json_data.get(partition_field, config().parameters.file_date)
-            # Obtain the data to be parsed into a DataFrame based on the specified json path
-            for key_level in json_specs.levels:
-                try:
-                    json_data = json_data[key_level]
-                except KeyError:
-                    raise KeyError(f'Path {json_specs.source_level} not found in JSON file')
-            if json_specs.source_level_format == JSONFormat.DICTIONARY:
-                json_data = list(json_data.values())
-            [item.update({partition_field: data_date}) for item in json_data]
-            data += json_data
-    return data
-
-
 ```
 
-## src/data_framework/modules/data_process/interface_data_process.py
-```python
 
+---
+## File: ./src/data_framework/modules/data_process/interface_data_process.py
+```python
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Any
@@ -3428,20 +3676,21 @@ class DataProcessInterface(ABC):
     def show_dataframe(self, dataframe: Any) -> WriteResponse:
         pass
 
-
 ```
 
-## src/data_framework/modules/dataflow__init__.py
-## src/data_framework/modules/dataflow/interface_dataflow.py
-```python
 
+---
+## File: ./src/data_framework/modules/dataflow/interface_dataflow.py
+```python
 from abc import ABC
 from data_framework.modules.config.core import config, Config
 from data_framework.modules.config.model.flows import (
     TableDict,
     DatabaseTable,
     OutputReport,
-    ExecutionMode
+    ExecutionMode,
+    LandingToRaw,
+    GenericProcess
 )
 from data_framework.modules.utils.logger import logger
 from data_framework.modules.data_process.core_data_process import CoreDataProcess
@@ -3463,6 +3712,7 @@ from typing import Any, List, Optional
 import boto3
 import json
 import time
+import secrets
 
 
 @dataclass
@@ -3501,6 +3751,7 @@ class PayloadResponse:
         ]
         return failed_outputs
 
+aws_ssm_exceptions = ['TooManyUpdates']
 
 class DataFlowInterface(ABC):
 
@@ -3557,8 +3808,12 @@ class DataFlowInterface(ABC):
             self.__quality_controls = CoreQualityControls()
             self.__notifications = CoreNotifications()
             self.__payload_response = PayloadResponse()
-            self.__ssm_client = boto3.client('ssm', region_name=self.config.parameters.region)
             self.__monitoring = CoreMonitoring()
+
+            self.__ssm_client = boto3.client(
+                'ssm',
+                region_name=self.config.parameters.region
+            )
 
             if self.config.is_first_process:
                 self.__monitoring.track_process_metric(
@@ -3579,7 +3834,8 @@ class DataFlowInterface(ABC):
     def read_table_with_casting(
         self,
         name_of_raw_table: str,
-        name_of_staging_table_to_casting: str = None
+        name_of_staging_table_to_casting: str = None,
+        apply_quality_controls: bool = True
     ) -> Any:
         input_table = self.source_tables.table(name_of_raw_table)
         name_of_staging_table_to_casting = (
@@ -3603,9 +3859,17 @@ class DataFlowInterface(ABC):
                 f"[ExecutionMode:{execution_mode.value}] Read {df.count()} rows " +
                 f"from {input_table.full_name} with partition {input_table.sql_where}"
             )
+        if apply_quality_controls:
+            controls_response = self.quality_controls.validate(
+                layer=self.config.source_layer,
+                table_config=input_table,
+                df_data=df,
+                framework_controls=True
+            )
+            df = controls_response.data
         return df
 
-    def read_table(self, name_of_table: str) -> Any:
+    def read_table(self, name_of_table: str, apply_quality_controls: bool = True) -> Any:
         input_table = self.source_tables.table(name_of_table)
         execution_mode = self.config.parameters.execution_mode
         sql_where = input_table.sql_where
@@ -3619,13 +3883,20 @@ class DataFlowInterface(ABC):
         df = response.data
         if execution_mode == ExecutionMode.FULL.value:
             self.logger.info(
-                f'[ExecutionMode:{execution_mode}] Read {df.count()} rows from {input_table.full_name}'
+                f'[ExecutionMode:{execution_mode}] Read from {input_table.full_name}'
             )
         else:
             self.logger.info(
-                f"[ExecutionMode:{execution_mode}] Read {df.count()} rows " +
-                f"from {input_table.full_name} with partition {sql_where}"
+                f"[ExecutionMode:{execution_mode}] from {input_table.full_name} with partition {sql_where}"
             )
+        if apply_quality_controls:
+            controls_response = self.quality_controls.validate(
+                layer=self.config.source_layer,
+                table_config=input_table,
+                df_data=df,
+                framework_controls=True
+            )
+            df = controls_response.data
         return df
 
     def write(self, df: Any, output_table_key: str) -> None:
@@ -3662,14 +3933,18 @@ class DataFlowInterface(ABC):
         #     )
 
     def save_payload_response(self):
+        if self.config.parameters.execution_id == None:
+            self.logger.warning("The payload is not saved because the execution_id parameter is not reported")
+            return
+
         try:
-            if self.config.parameters.process == 'landing_to_raw':
+            if isinstance(self.__current_process_config, LandingToRaw):
                 dq_table = DataQualityTable(
                     database=self.__current_process_config.output_file.database.value,
                     table=self.__current_process_config.output_file.table
                 )
                 self.payload_response.data_quality.tables.append(dq_table)
-            elif self.config.parameters.process != 'business_to_output':
+            elif isinstance(self.__current_process_config, GenericProcess):
                 for tale_name in self.__current_process_config.target_tables.tables:
                     table_info = self.__current_process_config.target_tables.table(table_key=tale_name)
                     dq_table = DataQualityTable(
@@ -3682,29 +3957,46 @@ class DataFlowInterface(ABC):
             self.payload_response.notifications = self.__notifications.get_notifications_to_send()
             # Convert to JSON
             payload_json = json.dumps(asdict(self.payload_response), ensure_ascii=False, indent=2)
+            self._update_ssm_key(
+                value=payload_json
+            )
+        except Exception:
+            raise PayloadResponseError()
+        
+    def _update_ssm_key(self, value: str):
+        max_retries = 6
+        secure_random = secrets.SystemRandom()
+
+        ssm_name = (
+            f'/dataflow/{self.config.project_id}/' +
+            f'{self.config.parameters.dataflow}-{self.config.parameters.process}/result/{self.config.parameters.execution_id}'
+        )
+
+        for attempt in range(max_retries):
             try:
-                ssm_name = (
-                    f'/dataflow/{self.config.project_id}/' +
-                    f'{self.config.parameters.dataflow}-{self.config.parameters.process}/result'
-                )
                 self.__ssm_client.put_parameter(
                     Name=ssm_name,
-                    Value=payload_json,
+                    Value=value,
                     Type='String',
                     Overwrite=True
                 )
-            except Exception:
-                raise SSMError(error_message=f'Error saving parameter {ssm_name} in SSM')
-        except Exception:
-            raise PayloadResponseError()
-
+                break
+            except Exception as exception:
+                if any(word in str(exception) for word in aws_ssm_exceptions) and attempt < max_retries - 1:
+                    logger.warning(exception)
+                    
+                    seconds_to_sleep = secure_random.randrange(15, 50)
+                    logger.warning(f'[RETRY] {attempt} of {max_retries}: {seconds_to_sleep} seconds')
+                    time.sleep(seconds_to_sleep)
+                else:
+                    raise SSMError(error_message=f'Error saving parameter {ssm_name} in SSM')
 
 ```
 
-## src/data_framework/modules/exception__init__.py
-## src/data_framework/modules/exception/aws_exceptions.py
-```python
 
+---
+## File: ./src/data_framework/modules/exception/aws_exceptions.py
+```python
 """Definition of exceptions for AWS services"""
 
 from data_framework.modules.exception.generic_exceptions import DataFrameworkError
@@ -3744,12 +4036,12 @@ class S3Error(DataFrameworkError):
     def __init__(self, error_message: str):
         super().__init__(error_message)
 
-
 ```
 
-## src/data_framework/modules/exception/catalogue_exceptions.py
-```python
 
+---
+## File: ./src/data_framework/modules/exception/catalogue_exceptions.py
+```python
 """Definition of exceptions for catalogue module"""
 
 from data_framework.modules.exception.generic_exceptions import DataFrameworkError
@@ -3792,12 +4084,12 @@ class SchemaError(DataFrameworkError):
             f'Error obtaining schema of {database}.{table}'
         )
 
-
 ```
 
-## src/data_framework/modules/exception/config_exceptions.py
-```python
 
+---
+## File: ./src/data_framework/modules/exception/config_exceptions.py
+```python
 """Definition of exceptions for config module"""
 
 from data_framework.modules.exception.generic_exceptions import DataFrameworkError
@@ -3883,12 +4175,12 @@ class TableConfigNotFoundError(DataFrameworkError):
             f'Table key for {database}.{table} not found in config file'
         )
 
-
 ```
 
-## src/data_framework/modules/exception/data_process_exceptions.py
-```python
 
+---
+## File: ./src/data_framework/modules/exception/data_process_exceptions.py
+```python
 """Definition of exceptions for data process module"""
 
 from data_framework.modules.exception.generic_exceptions import DataFrameworkError
@@ -3905,13 +4197,27 @@ class TransformationNotImplementedError(DataFrameworkError):
             error_message += f'. Available transformations: {available_types}'
         super().__init__(error_message)
 
-
 class TransformationError(DataFrameworkError):
     """Error raised when a pre-defined transformation fails"""
 
     def __init__(self, transformation: str):
         super().__init__(f'Error performing {transformation} transformation')
 
+class DataControlNotImplementedError(DataFrameworkError):
+    """Error raised when a data control specified in the config file is not implemented yet"""
+
+    def __init__(self, control: str, available_types: List[str] = None):
+        error_message = f'Data control type {control} not implemented'
+        if available_types:
+            available_types = ', '.join(available_types)
+            error_message += f'. Available data controls: {available_types}'
+        super().__init__(error_message)
+
+class DataControlError(DataFrameworkError):
+    """Error raised when a pre-defined control data fails"""
+
+    def __init__(self, control: str):
+        super().__init__(f'Error performing {control} data control')
 
 class CastQueryError(DataFrameworkError):
     """Error raised when the generation of a query to cast data fails"""
@@ -3972,11 +4278,18 @@ class SparkConfigurationError(DataFrameworkError):
         super().__init__(error_message)
 
 
+class JsonParseError(DataFrameworkError):
+    """Error raised when a JSON file could not be parsed correctly"""
+
+    def __init__(self, error_message: str = 'Error parsing JSON file'):
+        super().__init__(error_message)
+
 ```
 
-## src/data_framework/modules/exception/dataflow_exceptions.py
-```python
 
+---
+## File: ./src/data_framework/modules/exception/dataflow_exceptions.py
+```python
 """Definition of exceptions for dataflow module"""
 
 from data_framework.modules.exception.generic_exceptions import DataFrameworkError
@@ -3995,12 +4308,12 @@ class PayloadResponseError(DataFrameworkError):
     def __init__(self):
         super().__init__('Error generating dataflow payload response')
 
-
 ```
 
-## src/data_framework/modules/exception/generic_exceptions.py
-```python
 
+---
+## File: ./src/data_framework/modules/exception/generic_exceptions.py
+```python
 """Definition of generic data framework exceptions"""
 
 import traceback
@@ -4022,12 +4335,12 @@ class LoggerInitializationError(DataFrameworkError):
     def __init__(self):
         super().__init__('Failed to initialize logger')
 
-
 ```
 
-## src/data_framework/modules/exception/landing_exceptions.py
-```python
 
+---
+## File: ./src/data_framework/modules/exception/landing_exceptions.py
+```python
 """Definition of exceptions for landing step"""
 
 from data_framework.modules.exception.generic_exceptions import DataFrameworkError
@@ -4077,12 +4390,12 @@ class InvalidFileError(DataFrameworkError):
             'Check controls results table for more information'
         )
 
-
 ```
 
-## src/data_framework/modules/exception/notification_exceptions.py
-```python
 
+---
+## File: ./src/data_framework/modules/exception/notification_exceptions.py
+```python
 """Definition of exceptions for notification module"""
 
 from data_framework.modules.exception.generic_exceptions import DataFrameworkError
@@ -4145,12 +4458,12 @@ class NotificationLimitExceededError(DataFrameworkError):
     def __init__(self, max_notifications: int):
         super().__init__(f'The limit of {max_notifications} notifications has been exceeded')
 
-
 ```
 
-## src/data_framework/modules/exception/output_exceptions.py
-```python
 
+---
+## File: ./src/data_framework/modules/exception/output_exceptions.py
+```python
 """Definition of exceptions for output step"""
 
 from data_framework.modules.exception.generic_exceptions import DataFrameworkError
@@ -4185,12 +4498,12 @@ class NoOutputDataError(DataFrameworkError):
             f'No data available for output {output_name}'
         )
 
-
 ```
 
-## src/data_framework/modules/exception/storage_exceptions.py
-```python
 
+---
+## File: ./src/data_framework/modules/exception/storage_exceptions.py
+```python
 """Definition of exceptions for storage module"""
 
 from data_framework.modules.exception.generic_exceptions import DataFrameworkError
@@ -4216,15 +4529,16 @@ class StorageWriteError(DataFrameworkError):
     def __init__(self, path: str):
         super().__init__(f'Error writing file to {path}')
 
-
 ```
 
-## src/data_framework/modules/exception/validation_exceptions.py
-```python
 
+---
+## File: ./src/data_framework/modules/exception/validation_exceptions.py
+```python
 """Definition of exceptions for validation module"""
 
 from data_framework.modules.exception.generic_exceptions import DataFrameworkError
+from typing import List
 
 
 class QualityControlsError(DataFrameworkError):
@@ -4257,6 +4571,17 @@ class ValidationFunctionNotFoundError(DataFrameworkError):
             'Please check that the module or class that you have configure ' +
             'with QualityControls().set_parent() has this function defined'
         )
+
+
+class QualityRuleNotFoundError(DataFrameworkError):
+    """Error raised when the Data Framework rule defined for a validation is not found"""
+
+    def __init__(self, rule_name: str, available_rules: List[str] = None):
+        error_message = f'Data Framework rule {rule_name} not found. Please check that the name of the rule is correct'
+        if available_rules:
+            available_rules = ', '.join(available_rules)
+            error_message += f'. Available rules: {available_rules}'
+        super().__init__(error_message)
 
 
 class ParentNotConfiguredError(DataFrameworkError):
@@ -4296,12 +4621,12 @@ class InvalidDataFrameError(DataFrameworkError):
     def __init__(self, error_message: str):
         super().__init__(error_message)
 
-
 ```
 
-## src/data_framework/modules/monitoring/core_monitoring.py
-```python
 
+---
+## File: ./src/data_framework/modules/monitoring/core_monitoring.py
+```python
 from data_framework.modules.code.lazy_class_property import LazyClassProperty
 from data_framework.modules.monitoring.interface_monitoring import (
     MonitoringInterface,
@@ -4355,12 +4680,12 @@ class CoreMonitoring:
         value: float
     ):
         cls._monitoring.track_computation_metric(name=name, value=value)
-
 ```
 
-## src/data_framework/modules/monitoring/integrations/aws_cloudwatch/aws_cloudwatch_monitoring.py
-```python
 
+---
+## File: ./src/data_framework/modules/monitoring/integrations/aws_cloudwatch/aws_cloudwatch_monitoring.py
+```python
 from data_framework.modules.monitoring.interface_monitoring import (
     MonitoringInterface,
     Metric,
@@ -4519,12 +4844,12 @@ class AWSCloudWatch(MonitoringInterface):
         )
 
         self.track_metric(metric=metric)
-
 ```
 
-## src/data_framework/modules/monitoring/interface_monitoring.py
-```python
 
+---
+## File: ./src/data_framework/modules/monitoring/interface_monitoring.py
+```python
 from abc import ABC, abstractmethod
 from typing import (
     Union,
@@ -4642,13 +4967,12 @@ class MonitoringInterface(ABC):
     ):
         pass
 
-
 ```
 
-## src/data_framework/modules/notification__init__.py
-## src/data_framework/modules/notification/core_notifications.py
-```python
 
+---
+## File: ./src/data_framework/modules/notification/core_notifications.py
+```python
 from data_framework.modules.code.lazy_class_property import LazyClassProperty
 from data_framework.modules.notification.interface_notifications import (
     InterfaceNotifications,
@@ -4675,12 +4999,12 @@ class CoreNotifications(object):
     def get_notifications_to_send(cls) -> List[Notification]:
         return cls._notifications.get_notifications_to_send()
 
-
 ```
 
-## src/data_framework/modules/notification/interface_notifications.py
-```python
 
+---
+## File: ./src/data_framework/modules/notification/interface_notifications.py
+```python
 from data_framework.modules.exception.notification_exceptions import NotificationNotFoundError
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Union
@@ -4754,12 +5078,12 @@ class InterfaceNotifications(ABC):
     def get_notifications_to_send(self) -> List[Notification]:
         pass
 
-
 ```
 
-## src/data_framework/modules/notification/notifications.py
-```python
 
+---
+## File: ./src/data_framework/modules/notification/notifications.py
+```python
 from data_framework.modules.config.core import config
 from data_framework.modules.utils.logger import logger
 from data_framework.modules.config.model.flows import Environment, ExecutionMode
@@ -4871,13 +5195,12 @@ class Notifications(InterfaceNotifications):
     def get_notifications_to_send(self) -> List[NotificationToSend]:
         return self.notifications_to_send
 
-
 ```
 
-## src/data_framework/modules/storage__init__.py
-## src/data_framework/modules/storage/core_storage.py
-```python
 
+---
+## File: ./src/data_framework/modules/storage/core_storage.py
+```python
 from data_framework.modules.config.core import config
 from data_framework.modules.config.model.flows import Environment
 from data_framework.modules.code.lazy_class_property import LazyClassProperty
@@ -4950,12 +5273,12 @@ class Storage:
     def base_layer_path(cls, layer: Layer) -> PathResponse:
         return cls._storage.base_layer_path(layer=layer)
 
-
 ```
 
-## src/data_framework/modules/storage/integrations/local_storage.py
-```python
 
+---
+## File: ./src/data_framework/modules/storage/integrations/local_storage.py
+```python
 from data_framework.modules.utils.logger import logger
 from data_framework.modules.config.core import config
 from data_framework.modules.storage.interface_storage import (
@@ -5095,12 +5418,12 @@ class LocalStorage(CoreStorageInterface):
     def base_layer_path(self, layer: Layer) -> PathResponse:
         raise NotImplementedError('Function base_layer_path not implemented in local storage')
 
-
 ```
 
-## src/data_framework/modules/storage/integrations/s3_storage.py
-```python
 
+---
+## File: ./src/data_framework/modules/storage/integrations/s3_storage.py
+```python
 import boto3
 from data_framework.modules.utils.logger import logger
 from data_framework.modules.config.core import config
@@ -5231,9 +5554,17 @@ class S3Storage(CoreStorageInterface):
         s3_bucket = self._build_s3_bucket_name(layer=Layer.RAW)
         partitions = {}
         if config().parameters.execution_mode == ExecutionMode.DELTA:
-            partitions[config().processes.landing_to_raw.output_file.partition_field] = config().parameters.file_date
-
-        s3_key = self._build_s3_key_path(database=database, table=table_name, partitions=partitions)
+            partitions = {
+                config().processes.landing_to_raw.output_file.partition_field: config().parameters.file_date
+            }
+            s3_key = self._build_s3_key_path(
+                database=database,
+                table=table_name,
+                partitions=partitions,
+                filename=config().parameters.file_name
+            )
+        else:
+            s3_key = self._build_s3_key_path(database=database, table=table_name)
 
         response = PathResponse(
             success=True,
@@ -5260,12 +5591,12 @@ class S3Storage(CoreStorageInterface):
         )
         return response
 
-
 ```
 
-## src/data_framework/modules/storage/interface_storage.py
-```python
 
+---
+## File: ./src/data_framework/modules/storage/interface_storage.py
+```python
 from abc import ABC, abstractmethod
 from enum import Enum
 from dataclasses import dataclass
@@ -5363,24 +5694,23 @@ class CoreStorageInterface(ABC):
     def base_layer_path(self, layer: Layer) -> PathResponse:
         pass
 
-
 ```
 
-## src/data_framework/modules/utils__init__.py
-## src/data_framework/modules/utils/debug.py
-```python
 
+---
+## File: ./src/data_framework/modules/utils/debug.py
+```python
 from data_framework.modules.config.core import config
 from data_framework.modules.config.model.flows import Environment
 
 debug_code = lambda: config().environment != Environment.PRODUCTION
 
-
 ```
 
-## src/data_framework/modules/utils/logger.py
-```python
 
+---
+## File: ./src/data_framework/modules/utils/logger.py
+```python
 from data_framework.modules.exception.generic_exceptions import LoggerInitializationError
 import logging
 import threading
@@ -5418,12 +5748,12 @@ class Logger:
 
 logger = Logger()._instance.logger
 
-
 ```
 
-## src/data_framework/modules/utils/regex.py
-```python
 
+---
+## File: ./src/data_framework/modules/utils/regex.py
+```python
 import re
 
 
@@ -5437,12 +5767,18 @@ def change_file_extension(filename: str, new_extension: str) -> str:
     return new_filename
 
 
+def extract_substring(string: str, pattern: str) -> str:
+    result = re.search(pattern, string)
+    if not result:
+        raise ValueError(f'The string {string} does not match the pattern {pattern}')
+    return result.group()
+
 ```
 
-## src/data_framework/modules/validation__init__.py
-## src/data_framework/modules/validation/core_quality_controls.py
-```python
 
+---
+## File: ./src/data_framework/modules/validation/core_quality_controls.py
+```python
 from data_framework.modules.code.lazy_class_property import LazyClassProperty
 from data_framework.modules.validation.interface_quality_controls import InterfaceQualityControls, ControlsResponse
 from data_framework.modules.config.model.flows import DatabaseTable
@@ -5463,12 +5799,14 @@ class CoreQualityControls(object):
         layer: Layer,
         table_config: DatabaseTable,
         df_data: Any = None,
+        framework_controls: bool = False,
         **kwargs: Dict[str, Any]
     ) -> ControlsResponse:
         return cls._quality_controls.validate(
             layer=layer,
             table_config=table_config,
             df_data=df_data,
+            framework_controls=framework_controls,
             **kwargs
         )
 
@@ -5476,187 +5814,12 @@ class CoreQualityControls(object):
     def set_parent(cls, parent: Any) -> None:
         return cls._quality_controls.set_parent(parent=parent)
 
-
 ```
 
-## src/data_framework/modules/validation/integrations__init__.py
-## src/data_framework/modules/validation/integrations/file_validator.py
+
+---
+## File: ./src/data_framework/modules/validation/integrations/quality_controls.py
 ```python
-
-from data_framework.modules.config.core import config
-from data_framework.modules.utils.logger import logger
-from data_framework.modules.catalogue.core_catalogue import CoreCatalogue
-from data_framework.modules.validation.core_quality_controls import CoreQualityControls
-from data_framework.modules.data_process.core_data_process import CoreDataProcess
-from data_framework.modules.validation.interface_quality_controls import ControlRule
-import re
-from io import BytesIO
-from pathlib import Path
-import pandas as pd
-
-
-class FileValidator:
-
-    def __init__(self, file_date: str, file_contents: dict, source_file_path: str):
-        self.config = config()
-        self.current_process_config = self.config.current_process_config()
-        self.logger = logger
-        self.catalogue = CoreCatalogue()
-        self.quality_controls = CoreQualityControls()
-        self.data_process = CoreDataProcess()
-        self.incoming_file_config = self.current_process_config.incoming_file
-        self.output_file_config = self.current_process_config.output_file
-        self.file_contents = file_contents
-        self.file_name = Path(source_file_path).name
-        self.file_date = file_date
-
-    def validate_filename_pattern(self, rule: ControlRule) -> None:
-        pattern = self.incoming_file_config.filename_pattern
-        valid_filename = bool(re.match(pattern, self.file_name))
-        df_result = self.data_process.create_dataframe(
-            pd.DataFrame({'identifier': [self.file_name], 'result': [valid_filename]})
-        ).data
-        result = rule.calculate_result(df_result)
-        if result.valid_identifiers:
-            rule.result.add_detail(f'Valid filenames: {self.file_name}')
-        else:
-            rule.result.add_detail(f'Invalid filenames: {self.file_name}. Expected pattern: {pattern}')
-        rule.result.set_data_date(self.file_date)
-
-    def validate_unzipped_filename_pattern(self, rule: ControlRule) -> None:
-        pattern = self.incoming_file_config.filename_unzipped_pattern
-        results = []
-        filenames = []
-        for filename, file_data in self.file_contents.items():
-            if file_data['validate']:
-                valid_filename = bool(re.match(pattern, filename))
-                results.append(valid_filename)
-                filenames.append(filename)
-
-        df_result = self.data_process.create_dataframe(
-            pd.DataFrame({'identifier': filenames, 'result': results})
-        ).data
-        result = rule.calculate_result(df_result)
-        if result.valid_identifiers:
-            rule.result.add_detail(f"Valid filenames: {', '.join(result.valid_identifiers)}")
-        if result.invalid_identifiers:
-            rule.result.add_detail(f"Invalid filenames: {', '.join(result.invalid_identifiers)}")
-            rule.result.add_detail(f'Expected pattern: {pattern}')
-        rule.result.set_data_date(self.file_date)
-
-    def validate_csv_format(self, rule: ControlRule) -> None:
-        delimiter = self.incoming_file_config.csv_specs.delimiter
-        header = self.incoming_file_config.csv_specs.header_position
-        encoding = self.incoming_file_config.csv_specs.encoding
-        results = []
-        filenames = []
-        for filename, file_data in self.file_contents.items():
-            if file_data['validate']:
-                file_data['content'].seek(0)
-                try:
-                    df = pd.read_csv(
-                        file_data['content'],
-                        dtype=str,
-                        delimiter=delimiter,
-                        header=header,
-                        encoding=encoding
-                    )
-                except Exception:
-                    valid_csv = False
-                else:
-                    expected_n_columns = self._get_expected_number_of_columns(file_data['content'])
-                    valid_csv = df.shape[1] == expected_n_columns
-                results.append(valid_csv)
-                filenames.append(filename)
-        df_result = self.data_process.create_dataframe(
-            pd.DataFrame({'identifier': filenames, 'result': results})
-        ).data
-        result = rule.calculate_result(df_result)
-        if result.valid_identifiers:
-            rule.result.add_detail(f"CSV files with valid format: {', '.join(result.valid_identifiers)}")
-        if result.invalid_identifiers:
-            rule.result.add_detail(f"CSV files with invalid format: {', '.join(result.invalid_identifiers)}")
-            rule.result.add_detail(f'Expected separator: {delimiter}')
-            rule.result.add_detail(f'Expected header position: {header}')
-            rule.result.add_detail(f'Expected encoding: {encoding}')
-        rule.result.set_data_date(self.file_date)
-
-    def validate_csv_columns(self, rule: ControlRule) -> None:
-        # Obtain expected columns from raw table
-        response = self.catalogue.get_schema(
-            self.output_file_config.database_relation,
-            self.output_file_config.table
-        )
-        expected_columns = response.schema.get_column_names(partitioned=False)
-        results = []
-        filenames = []
-        invalid_columns_info = []
-        for filename, file_data in self.file_contents.items():
-            if file_data['validate']:
-                file_data['content'].seek(0)
-                try:
-                    df = pd.read_csv(
-                        file_data['content'],
-                        dtype=str,
-                        delimiter=self.incoming_file_config.csv_specs.delimiter,
-                        header=self.incoming_file_config.csv_specs.header_position,
-                        encoding=self.incoming_file_config.csv_specs.encoding
-                    )
-                except Exception:
-                    columns = []
-                    valid_columns = False
-                else:
-                    columns = self._parse_columns(df)
-                    valid_columns = columns == expected_columns
-                results.append(valid_columns)
-                filenames.append(filename)
-                if not valid_columns:
-                    extra_columns = list(set(columns) - set(expected_columns))
-                    missing_columns = list(set(expected_columns) - set(columns))
-                    invalid_columns_info.append(
-                        f"{filename} (Extra columns: {', '.join(extra_columns) or None}, " +
-                        f"Missing columns: {', '.join(missing_columns) or None})"
-                    )
-        df_result = self.data_process.create_dataframe(
-            pd.DataFrame({'identifier': filenames, 'result': results})
-        ).data
-        result = rule.calculate_result(df_result)
-        if result.valid_identifiers:
-            rule.result.add_detail(f"CSV files with valid columns: {', '.join(result.valid_identifiers)}")
-        if result.invalid_identifiers:
-            rule.result.add_detail(f"CSV files with invalid columns: {', '.join(invalid_columns_info)}")
-        rule.result.set_data_date(self.file_date)
-
-    def _get_expected_number_of_columns(self, csv_content: BytesIO) -> int:
-        csv_content.seek(0)
-        header_position = self.incoming_file_config.csv_specs.header_position
-        for i, line in enumerate(csv_content):
-            if i == header_position:
-                encoding = self.incoming_file_config.csv_specs.encoding
-                delimiter = self.incoming_file_config.csv_specs.delimiter
-                return len(line.decode(encoding).split(delimiter))
-
-    def _parse_columns(self, df: pd.DataFrame) -> list:
-        # TODO: definir un estándar y parametrizar en config
-        # Replace whitespaces with _ and remove special characters
-        columns = [
-            re.sub(
-                r'\s+', '_',
-                re.sub(
-                    r'[^A-Za-z0-9\s_]', '',
-                    column.lower().strip().replace('/', ' ')
-                )
-            )
-            for column in df.columns
-        ]
-        return columns
-
-
-```
-
-## src/data_framework/modules/validation/integrations/quality_controls.py
-```python
-
 from data_framework.modules.validation.interface_quality_controls import (
     InterfaceQualityControls,
     ControlsResponse,
@@ -5671,15 +5834,18 @@ from data_framework.modules.data_process.core_data_process import CoreDataProces
 from data_framework.modules.config.model.flows import Technologies, DatabaseTable
 from data_framework.modules.storage.interface_storage import Layer
 from data_framework.modules.utils.debug import debug_code
+from data_framework.modules.code.filter_kwargs import filter_function_kwargs
 from data_framework.modules.exception.validation_exceptions import (
     QualityControlsError,
     FailedRulesError,
     ValidationFunctionNotFoundError,
     ParentNotConfiguredError,
-    RuleComputeError
+    RuleComputeError,
+    QualityRuleNotFoundError
 )
 from typing import Any, Dict
 import pandas as pd
+from importlib import import_module
 
 
 class QualityControls(InterfaceQualityControls):
@@ -5693,33 +5859,43 @@ class QualityControls(InterfaceQualityControls):
         self.master_table = ControlsTable.master()
         self.dataset_table = ControlsTable.dataset()
         self.results_table = ControlsTable.results()
+        self.df_data = None
 
     def set_parent(self, parent: Any) -> None:
         self.parent = parent
+
+    def _set_df_data(self, df: Any) -> None:
+        if df is not None:
+            self.df_data = df
 
     def validate(
         self,
         layer: Layer,
         table_config: DatabaseTable,
         df_data: Any = None,
+        framework_controls: bool = False,
         **kwargs: Dict[str, Any]
     ) -> ControlsResponse:
         try:
-            self.logger.info(f'Validating table {table_config.full_name}')
-            df_rules = self._get_active_rules(layer, table_config)
+            self._set_df_data(df_data)
+            if framework_controls:
+                self.logger.info(f'Validating table {table_config.full_name} with default Data Framework controls')
+            else:
+                self.logger.info(f'Validating table {table_config.full_name}')
+            df_rules = self._get_active_rules(layer, table_config, framework_controls)
             if self.data_process.is_empty(df_rules):
                 self.logger.info(f'No rules defined for table {table_config.full_name}')
                 response = ControlsResponse(
                     success=True,
                     error=None,
                     table=table_config,
-                    data=df_data,
+                    data=self.df_data,
                     rules=None,
                     results=None,
                     overall_result=True
                 )
             else:
-                df_results = self._compute_rules(df_data, df_rules, **kwargs)
+                df_results = self._compute_rules(df_rules, **kwargs)
                 if df_results is not None:
                     self._insert_results(df_results)
                     overall_result = self._get_overall_result(df_rules, df_results)
@@ -5727,7 +5903,7 @@ class QualityControls(InterfaceQualityControls):
                         success=True,
                         error=None,
                         table=table_config,
-                        data=df_data,
+                        data=self.df_data,
                         rules=df_rules,
                         results=df_results,
                         overall_result=overall_result
@@ -5738,7 +5914,7 @@ class QualityControls(InterfaceQualityControls):
                         success=True,
                         error=None,
                         table=table_config,
-                        data=df_data,
+                        data=self.df_data,
                         rules=df_rules,
                         results=None,
                         overall_result=True
@@ -5748,7 +5924,7 @@ class QualityControls(InterfaceQualityControls):
                 success=False,
                 error=e,
                 table=table_config,
-                data=df_data,
+                data=self.df_data,
                 rules=None,
                 results=None,
                 overall_result=False
@@ -5756,11 +5932,11 @@ class QualityControls(InterfaceQualityControls):
             raise QualityControlsError(table_name=table_config.full_name)
         return response
 
-    def _get_active_rules(self, layer: Layer, table_config: DatabaseTable) -> Any:
+    def _get_active_rules(self, layer: Layer, table_config: DatabaseTable, framework_controls: bool) -> Any:
         response_rules = self.data_process.read_table(
             self.dataset_table.table_config.database_relation,
             self.dataset_table.table_config.table,
-            self.dataset_table.filter_rules(layer, table_config),
+            self.dataset_table.filter_rules(layer, table_config, framework_controls),
             columns=self.dataset_table.mandatory_columns
         )
         response_master = self.data_process.read_table(
@@ -5831,7 +6007,7 @@ class QualityControls(InterfaceQualityControls):
             f'Successfully written control results in table {self.results_table.table_config.full_name}'
         )
 
-    def _compute_rules(self, df_data: Any, df_rules: Any, **kwargs: Dict[str, Any]) -> Any:
+    def _compute_rules(self, df_rules: Any, **kwargs: Dict[str, Any]) -> Any:
         if debug_code:
             self.logger.info('Controls definition:')
             self.data_process.show_dataframe(df_rules)
@@ -5839,7 +6015,7 @@ class QualityControls(InterfaceQualityControls):
             # Transform into Pandas dataframe
             df_rules = df_rules.toPandas()
         # Compute all rules
-        df_results = df_rules.apply(self._compute_generic_rule, axis=1, args=(df_data,), **kwargs)
+        df_results = df_rules.apply(self._compute_generic_rule, axis=1, **kwargs)
         if not df_results.empty:
             # Remove rules that raised an exception
             df_results = df_results[
@@ -5857,7 +6033,7 @@ class QualityControls(InterfaceQualityControls):
                 self.data_process.show_dataframe(df_results)
             return df_results
 
-    def _compute_generic_rule(self, rule_definition: pd.Series, df_data: Any, **kwargs: Dict[str, Any]) -> pd.Series:
+    def _compute_generic_rule(self, rule_definition: pd.Series, **kwargs: Dict[str, Any]) -> pd.Series:
         try:
             # Parse rule
             rule = ControlRule.from_series(rule_definition)
@@ -5872,9 +6048,11 @@ class QualityControls(InterfaceQualityControls):
             if rule.algorithm.algorithm_type == AlgorithmType.SQL.value:
                 self._compute_sql_rule(rule, **kwargs)
             elif rule.algorithm.algorithm_type == AlgorithmType.PYTHON.value:
-                self._compute_python_rule(rule, df_data, **kwargs)
+                self._compute_python_rule(rule, **kwargs)
             elif rule.algorithm.algorithm_type == AlgorithmType.REGEX.value:
-                self._compute_regex_rule(rule, df_data)
+                self._compute_regex_rule(rule)
+            elif rule.algorithm.algorithm_type == AlgorithmType.DATA_FRAMEWORK.value:
+                self._compute_data_framework_rule(rule, **kwargs)
             rule_result = rule.result.to_series()
             self.logger.info(f'Successfully computed rule {rule.id}')
             return rule_result
@@ -5896,24 +6074,41 @@ class QualityControls(InterfaceQualityControls):
         if result.invalid_identifiers:
             rule.result.add_detail(f"Invalid records: {', '.join(result.invalid_identifiers)}")
 
-    def _compute_python_rule(self, rule: ControlRule, df_data: Any, **kwargs: Dict[str, Any]) -> None:
+    def _compute_python_rule(self, rule: ControlRule, **kwargs: Dict[str, Any]) -> None:
         if not self.parent:
             raise ParentNotConfiguredError()
         try:
             function_name = rule.algorithm.algorithm_description
             validation_function = getattr(self.parent, function_name)
+            args = filter_function_kwargs(kwargs=kwargs, function=validation_function)
             if rule.level == ControlLevel.DATA.value:
-                validation_function(rule, df_data, **kwargs)
+                validation_function(rule, self.df_data, **args)
             elif rule.level == ControlLevel.FILE.value:
-                validation_function(rule, **kwargs)
+                validation_function(rule, **args)
         except AttributeError:
             raise ValidationFunctionNotFoundError(function_name=function_name)
 
-    def _compute_regex_rule(self, rule: ControlRule, df_data: Any) -> None:
+    def _compute_data_framework_rule(self, rule: ControlRule, **kwargs: Dict[str, Any]) -> None:
+        try:
+            rule_name = rule.algorithm.algorithm_description
+            rule_namespace = f'data_framework.modules.validation.integrations.rules.{rule_name}'
+            rule_module = import_module(rule_namespace)
+            _class = getattr(rule_module, 'RuleCoordinator')
+            _instance_class = _class(
+                rule=rule,
+                data_frame=self.df_data
+            )
+            args = filter_function_kwargs(kwargs=kwargs, function=_instance_class.process)
+            _instance_class.process(**args)
+            self._set_df_data(_instance_class.data_frame)
+        except ModuleNotFoundError:
+            raise QualityRuleNotFoundError(rule_name=rule_name)
+
+    def _compute_regex_rule(self, rule: ControlRule) -> None:
         pattern = rule.algorithm.algorithm_description
         columns = rule.field_list
         target_columns = ['identifier', 'value']
-        response = self.data_process.stack_columns(df_data, columns, target_columns)
+        response = self.data_process.stack_columns(self.df_data, columns, target_columns)
         df_result = response.data
         if self.technology == Technologies.EMR:
             from pyspark.sql.functions import col, when, lit
@@ -5930,12 +6125,614 @@ class QualityControls(InterfaceQualityControls):
         if result.invalid_identifiers:
             rule.result.add_detail(f"Invalid columns: {', '.join(result.unique_invalid_identifiers)}")
 
+```
+
+
+---
+## File: ./src/data_framework/modules/validation/integrations/rules/check_json_status_code.py
+```python
+from data_framework.modules.validation.interface_quality_controls import ControlRule
+from data_framework.modules.validation.integrations.rules.interface_rule import InterfaceRule
+from pyspark.sql import DataFrame
+from typing import Dict
+import pandas as pd
+from io import BytesIO
+import json
+
+
+class RuleCoordinator(InterfaceRule):
+
+    def __init__(self, rule: ControlRule, data_frame: DataFrame):
+        super().__init__(rule, data_frame)
+
+    def process(self, file_date: str, file_contents: Dict[str, BytesIO]) -> None:
+        results = []
+        identifiers = []
+        for filename, file_data in file_contents.items():
+            if file_data['validate']:
+                file_data['content'].seek(0)
+                json_content = json.load(file_data['content'])
+                status_code = str(json_content['status_code'])
+                valid_json = True if status_code == '200' else False
+                identifier = f'{filename} (Status code: {status_code})'
+                results.append(valid_json)
+                identifiers.append(identifier)
+        df_result = self.data_process.create_dataframe(
+            pd.DataFrame({'identifier': identifiers, 'result': results})
+        ).data
+        result = self.rule.calculate_result(df_result)
+        if result.valid_identifiers:
+            self.rule.result.add_detail(
+                f"JSON files with valid status codes: {', '.join(result.valid_identifiers)}"
+            )
+        if result.invalid_identifiers:
+            self.rule.result.add_detail(
+                f"JSON files with invalid status codes: {', '.join(result.invalid_identifiers)}"
+            )
+        self.rule.result.set_data_date(file_date)
 
 ```
 
-## src/data_framework/modules/validation/interface_quality_controls.py
-```python
 
+---
+## File: ./src/data_framework/modules/validation/integrations/rules/check_master_fields.py
+```python
+from data_framework.modules.validation.interface_quality_controls import (
+    ControlRule
+)
+
+from pyspark.sql import DataFrame
+from data_framework.modules.validation.integrations.rules.interface_rule import InterfaceRule
+
+class RuleCoordinator(InterfaceRule):
+    
+    def __init__(self, rule: ControlRule, data_frame: DataFrame):
+        super().__init__(rule, data_frame)
+
+    def process(self):
+        self.require_primary_keys()
+
+        self.logger.info(f'Validating {self.rule.database_table.full_name} with primary keys {self.rule.database_table.primary_keys}')
+
+        source_columns = self.data_frame.columns
+        master_fields = self.master_fields(
+            source_fields=source_columns
+        )
+
+        sql = self.build_qa_query(
+            master_fields=master_fields
+        )
+
+        df_result = self.data_process.query(
+            sql=sql
+        ).data
+
+        # Calculate rule result
+        result = self.rule.calculate_result(df_result)
+        if result.invalid_identifiers:
+            identifiers = '. '.join(result.invalid_identifiers)
+            self.rule.result.add_detail(identifiers)
+
+    def cast_column(self, column_name: str, column_type: str) -> str:
+        if column_type in ('int', 'double', 'float', 'date', 'timestamp', 'boolean', 'bigint') or column_type.startswith('decimal'):
+            query = f"""
+                CASE
+                    WHEN {column_name} IS NOT NULL THEN
+                        COALESCE(
+                            TRY_CAST({column_name} AS {column_type.upper()}),
+                            CONCAT('_QA_KO_:', {column_name})
+                        )
+                    ELSE
+                        {column_name}
+                END AS {column_name}
+            """
+        elif 'struct<' in column_type or 'array<' in column_type:
+            query = f"""
+                CASE
+                    WHEN {column_name} IS NOT NULL THEN
+                        COALESCE(
+                            FROM_JSON({column_name}, '{column_type}'),
+                            CONCAT('_QA_KO_:', {column_name})
+                        )
+                    ELSE
+                        {column_name}
+                END AS {column_name}
+            """
+        else:
+            query = f'{column_name}'
+        return query
+
+    def master_fields(self, source_fields: list[str]) -> dict:
+
+        translate = str.maketrans('[]', '()')
+
+        sql_source_fields = str(source_fields).translate(translate).lower()
+
+        df_master_fields = self.data_process.query(
+            sql=f"""
+                SELECT
+                    field,
+                    type
+                FROM
+                    iceberg_catalog.rl_funds_common.master_fields
+                WHERE
+                    target = '{self.rule.database_table.table}'
+                    AND LOWER(field) IN {sql_source_fields}
+            """
+        )
+
+        rows = df_master_fields.collect()
+        master_fields = {row['field']: row['type'] for row in rows}
+        
+        return master_fields
+    
+    def build_qa_query(self, master_fields: dict) -> str:
+        sql_internal_qa_result = []
+        sql_primary_keys = []
+        sql_casted_columns = []
+
+        for column_name, column_type in master_fields.items():
+            sql_fix_column_name = f"`{column_name}`"
+            qa_error_word = '_QA_KO_:'
+            
+            sql_cast = self.cast_column(
+                column_name=sql_fix_column_name,
+                column_type=column_type
+            )
+            
+            sql_casted_columns.append(sql_cast)
+            
+            if column_name in self.rule.database_table.primary_keys:
+                sql_primary_key = f"""CONCAT("{column_name}='", {sql_fix_column_name}, "'")"""
+                sql_primary_keys.append(sql_primary_key)
+            
+            # Format: id='XXX', second_id='BBBB': campoX='VALUE' cannot cast 'X', campoZ='VALUEB' cannot cast 'B'
+            
+            if column_type != 'string':
+                sql_qa_result = f"""
+                    CASE
+                        WHEN CONTAINS({sql_fix_column_name}, '{qa_error_word}') = true THEN
+                            CONCAT(
+                                '{column_name}',
+                                "='",
+                                REPLACE(
+                                    {sql_fix_column_name},
+                                    '{qa_error_word}'
+                                ),
+                                "' cannot cast ",
+                                "'{column_type}', "
+                            )
+                        ELSE
+                            ''
+                    END
+                """
+                
+                sql_internal_qa_result.append(sql_qa_result)
+
+        casted_columns = [
+            self.cast_columns(
+                column_name=f"`{column_name}`",
+                column_type=column_type
+            )
+            for column_name, column_type in master_fields.items()
+        ]
+
+        self.data_frame.createOrReplaceTempView('tmp_data_source')
+
+        query = f"""
+            SELECT
+                CASE
+                    WHEN LENGTH(__internal_result_qa) > 0 THEN
+                        CONCAT(
+                            {", ', ', ".join(sql_primary_keys)},
+                            ': ',
+                            SUBSTR(__internal_result_qa, 0, LENGTH(__internal_result_qa) - 2) 
+                        )
+                    ELSE
+                        CONCAT(
+                            {", ', ', ".join(sql_primary_keys)}
+                        )
+                END AS identifier,
+                LENGTH(__internal_result_qa) > 0 AS result
+            FROM (
+                SELECT
+                    CONCAT({', '.join(sql_internal_qa_result)}) AS __internal_result_qa
+                FROM (
+                    SELECT
+                        {', '.join(casted_columns)}
+                    FROM
+                        tmp_data_source
+                )
+            )
+        """
+
+        return query
+
+
+```
+
+
+---
+## File: ./src/data_framework/modules/validation/integrations/rules/check_primary_keys.py
+```python
+from data_framework.modules.validation.interface_quality_controls import ControlRule
+from data_framework.modules.validation.integrations.rules.drop_invalid_primary_keys import (
+    RuleCoordinator as DropInvalidPrimaryKeys,
+    DuplicatesStrategy
+)
+from pyspark.sql import DataFrame
+
+
+class RuleCoordinator(DropInvalidPrimaryKeys):
+
+    def __init__(self, rule: ControlRule, data_frame: DataFrame):
+        super().__init__(rule, data_frame)
+        self.duplicates_strategy = DuplicatesStrategy.KEEP_ALL
+
+```
+
+
+---
+## File: ./src/data_framework/modules/validation/integrations/rules/drop_invalid_primary_keys.py
+```python
+from data_framework.modules.validation.interface_quality_controls import ControlRule
+from data_framework.modules.validation.integrations.rules.interface_rule import InterfaceRule
+from pyspark.sql.functions import col, count, greatest, concat_ws, when, concat, lit
+from pyspark.sql import DataFrame
+from enum import Enum
+
+
+class DuplicatesStrategy(Enum):
+    KEEP_ALL = "keep_all"
+    DROP_ALL = "drop_all"
+    KEEP_FIRST = "keep_first"
+
+
+class RuleCoordinator(InterfaceRule):
+
+    @property
+    def duplicates_strategy(self) -> DuplicatesStrategy:
+        return self._duplicates_strategy
+
+    @duplicates_strategy.setter
+    def duplicates_strategy(self, new_value: DuplicatesStrategy):
+        self._duplicates_strategy = new_value
+
+    def __init__(self, rule: ControlRule, data_frame: DataFrame):
+        super().__init__(rule, data_frame)
+        self._duplicates_strategy = DuplicatesStrategy.DROP_ALL
+
+    def process(self) -> None:
+        self.require_primary_keys()
+        self.logger.info(
+            f'Validating {self.rule.database_table.full_name} with primary keys {self.rule.database_table.primary_keys}'
+        )
+        # Generate identifier
+        df_input = self.data_frame.withColumn(
+            'identifier',
+            concat_ws(', ', *[
+                when(
+                    col(column).isNull(), concat(lit(column), lit('=NULL'))
+                ).otherwise(
+                    concat(lit(column), lit('='), col(column))
+                )
+                for column in self.rule.database_table.primary_keys
+            ])
+        )
+        # Count records with the same primary keys (duplicated records)
+        df_result = df_input.groupBy(self.rule.database_table.primary_keys + ['identifier']) \
+            .agg(count('*').alias('count')) \
+            .withColumn(
+                'has_duplicates',
+                col('count') > 1
+            )
+        # Check if any of the primary keys is null
+        df_result = df_result.withColumn(
+            'has_null_pks',
+            greatest(*[col(column).isNull() for column in self.rule.database_table.primary_keys])
+        )
+        # Join both results into one
+        df_result = df_result.withColumn('result', ~col('has_duplicates') & ~col('has_null_pks'))
+        # Select only needed columns
+        df_result = df_result.select(*['identifier', 'result']).distinct()
+        # Calculate rule result
+        result = self.rule.calculate_result(df_result)
+        if result.invalid_identifiers:
+            identifiers = '), ('.join(result.invalid_identifiers)
+            self.rule.result.add_detail(f'({identifiers})')
+
+        if self.duplicates_strategy == DuplicatesStrategy.DROP_ALL:
+            # Remove all records with null or duplicated PKs
+            df_filtered = df_input.filter(~col('identifier').isin(result.invalid_identifiers))
+            # Select only input columns
+            df_filtered = df_filtered.select(self.data_frame.columns)
+            self.data_frame = df_filtered
+
+        elif self.duplicates_strategy == DuplicatesStrategy.KEEP_FIRST:
+            # Remove records with duplicated PKs except the first one
+            df_filtered = df_input.dropDuplicates(subset=self.rule.database_table.primary_keys)
+            # Select only input columns
+            df_filtered = df_filtered.select(self.data_frame.columns)
+            self.data_frame = df_filtered
+
+```
+
+
+---
+## File: ./src/data_framework/modules/validation/integrations/rules/interface_rule.py
+```python
+from data_framework.modules.validation.interface_quality_controls import ControlRule
+from data_framework.modules.data_process.core_data_process import CoreDataProcess
+from data_framework.modules.config.core import config
+from pyspark.sql import DataFrame
+from data_framework.modules.utils.logger import logger
+
+
+class InterfaceRule:
+
+    def __init__(self, rule: ControlRule, data_frame: DataFrame):
+        self.rule = rule
+        self.data_frame = data_frame
+        self.data_process = CoreDataProcess()
+        self.config = config()
+        self.logger = logger
+
+    def process(self):
+        raise NotImplementedError('It is mandatory to implement process() function')
+
+    def require_primary_keys(self):
+        primary_keys = self.rule.database_table.primary_keys
+        if not primary_keys:
+            raise ValueError(
+                f'Primary keys not defined for table {self.rule.database_table.full_name} in config file'
+            )
+
+```
+
+
+---
+## File: ./src/data_framework/modules/validation/integrations/rules/unify_duplicated_primary_keys.py
+```python
+from data_framework.modules.validation.interface_quality_controls import ControlRule
+from data_framework.modules.validation.integrations.rules.drop_invalid_primary_keys import (
+    RuleCoordinator as DropInvalidPrimaryKeys,
+    DuplicatesStrategy
+)
+from pyspark.sql import DataFrame
+
+
+class RuleCoordinator(DropInvalidPrimaryKeys):
+
+    def __init__(self, rule: ControlRule, data_frame: DataFrame):
+        super().__init__(rule, data_frame)
+        self.duplicates_strategy = DuplicatesStrategy.KEEP_FIRST
+
+```
+
+
+---
+## File: ./src/data_framework/modules/validation/integrations/rules/validate_csv_columns.py
+```python
+from data_framework.modules.validation.interface_quality_controls import ControlRule
+from data_framework.modules.validation.integrations.rules.interface_rule import InterfaceRule
+from data_framework.modules.catalogue.core_catalogue import CoreCatalogue
+from pyspark.sql import DataFrame
+from typing import Dict
+import pandas as pd
+import re
+from io import BytesIO
+
+
+class RuleCoordinator(InterfaceRule):
+
+    def __init__(self, rule: ControlRule, data_frame: DataFrame):
+        super().__init__(rule, data_frame)
+        self.catalogue = CoreCatalogue()
+
+    def process(self, file_date: str, file_contents: Dict[str, BytesIO]) -> None:
+        # Obtain expected columns from raw table
+        response = self.catalogue.get_schema(
+            self.config.current_process_config().output_file.database_relation,
+            self.config.current_process_config().output_file.table
+        )
+        expected_columns = response.schema.get_column_names(partitioned=False)
+        results = []
+        filenames = []
+        invalid_columns_info = []
+        for filename, file_data in file_contents.items():
+            if file_data['validate']:
+                file_data['content'].seek(0)
+                try:
+                    df = pd.read_csv(
+                        file_data['content'],
+                        dtype=str,
+                        delimiter=self.config.current_process_config().incoming_file.csv_specs.delimiter,
+                        header=self.config.current_process_config().incoming_file.csv_specs.header_position,
+                        encoding=self.config.current_process_config().incoming_file.csv_specs.encoding
+                    )
+                except Exception:
+                    columns = []
+                    valid_columns = False
+                else:
+                    columns = self._parse_columns(df)
+                    valid_columns = columns == expected_columns
+                results.append(valid_columns)
+                filenames.append(filename)
+                if not valid_columns:
+                    extra_columns = list(set(columns) - set(expected_columns))
+                    missing_columns = list(set(expected_columns) - set(columns))
+                    invalid_columns_info.append(
+                        f"{filename} (Extra columns: {', '.join(extra_columns) or None}, " +
+                        f"Missing columns: {', '.join(missing_columns) or None})"
+                    )
+        df_result = self.data_process.create_dataframe(
+            pd.DataFrame({'identifier': filenames, 'result': results})
+        ).data
+        result = self.rule.calculate_result(df_result)
+        if result.valid_identifiers:
+            self.rule.result.add_detail(f"CSV files with valid columns: {', '.join(result.valid_identifiers)}")
+        if result.invalid_identifiers:
+            self.rule.result.add_detail(f"CSV files with invalid columns: {', '.join(invalid_columns_info)}")
+        self.rule.result.set_data_date(file_date)
+
+    def _parse_columns(self, df: pd.DataFrame) -> list:
+        # TODO: definir un estándar y parametrizar en config
+        # Replace whitespaces with _ and remove special characters
+        columns = [
+            re.sub(
+                r'\s+', '_',
+                re.sub(
+                    r'[^A-Za-z0-9\s_]', '',
+                    column.lower().strip().replace('/', ' ')
+                )
+            )
+            for column in df.columns
+        ]
+        return columns
+
+```
+
+
+---
+## File: ./src/data_framework/modules/validation/integrations/rules/validate_csv_format.py
+```python
+from data_framework.modules.validation.interface_quality_controls import ControlRule
+from data_framework.modules.validation.integrations.rules.interface_rule import InterfaceRule
+from pyspark.sql import DataFrame
+from typing import Dict
+import pandas as pd
+from io import BytesIO
+
+
+class RuleCoordinator(InterfaceRule):
+
+    def __init__(self, rule: ControlRule, data_frame: DataFrame):
+        super().__init__(rule, data_frame)
+        self.incoming_file_config = self.config.current_process_config().incoming_file
+
+    def process(self, file_date: str, file_contents: Dict[str, BytesIO]) -> None:
+        delimiter = self.incoming_file_config.csv_specs.delimiter
+        header = self.incoming_file_config.csv_specs.header_position
+        encoding = self.incoming_file_config.csv_specs.encoding
+        results = []
+        filenames = []
+        for filename, file_data in file_contents.items():
+            if file_data['validate']:
+                file_data['content'].seek(0)
+                try:
+                    df = pd.read_csv(
+                        file_data['content'],
+                        dtype=str,
+                        delimiter=delimiter,
+                        header=header,
+                        encoding=encoding
+                    )
+                except Exception:
+                    valid_csv = False
+                else:
+                    expected_n_columns = self._get_expected_number_of_columns(file_data['content'])
+                    valid_csv = df.shape[1] == expected_n_columns
+                results.append(valid_csv)
+                filenames.append(filename)
+        df_result = self.data_process.create_dataframe(
+            pd.DataFrame({'identifier': filenames, 'result': results})
+        ).data
+        result = self.rule.calculate_result(df_result)
+        if result.valid_identifiers:
+            self.rule.result.add_detail(f"CSV files with valid format: {', '.join(result.valid_identifiers)}")
+        if result.invalid_identifiers:
+            self.rule.result.add_detail(f"CSV files with invalid format: {', '.join(result.invalid_identifiers)}")
+            self.rule.result.add_detail(f'Expected separator: {delimiter}')
+            self.rule.result.add_detail(f'Expected header position: {header}')
+            self.rule.result.add_detail(f'Expected encoding: {encoding}')
+        self.rule.result.set_data_date(file_date)
+
+    def _get_expected_number_of_columns(self, csv_content: BytesIO) -> int:
+        csv_content.seek(0)
+        header_position = self.incoming_file_config.csv_specs.header_position
+        for i, line in enumerate(csv_content):
+            if i == header_position:
+                encoding = self.incoming_file_config.csv_specs.encoding
+                delimiter = self.incoming_file_config.csv_specs.delimiter
+                return len(line.decode(encoding).split(delimiter))
+
+```
+
+
+---
+## File: ./src/data_framework/modules/validation/integrations/rules/validate_filename_pattern.py
+```python
+from data_framework.modules.validation.interface_quality_controls import ControlRule
+from data_framework.modules.validation.integrations.rules.interface_rule import InterfaceRule
+from pyspark.sql import DataFrame
+import pandas as pd
+import re
+
+
+class RuleCoordinator(InterfaceRule):
+
+    def __init__(self, rule: ControlRule, data_frame: DataFrame):
+        super().__init__(rule, data_frame)
+
+    def process(self, file_name: str, file_date: str) -> None:
+        pattern = self.config.current_process_config().incoming_file.filename_pattern
+        valid_filename = bool(re.match(pattern, file_name))
+        df_result = self.data_process.create_dataframe(
+            pd.DataFrame({'identifier': [file_name], 'result': [valid_filename]})
+        ).data
+        result = self.rule.calculate_result(df_result)
+        if result.valid_identifiers:
+            self.rule.result.add_detail(f'Valid filenames: {file_name}')
+        else:
+            self.rule.result.add_detail(f'Invalid filenames: {file_name}. Expected pattern: {pattern}')
+        self.rule.result.set_data_date(file_date)
+
+```
+
+
+---
+## File: ./src/data_framework/modules/validation/integrations/rules/validate_unzipped_filename_pattern.py
+```python
+from data_framework.modules.validation.interface_quality_controls import ControlRule
+from data_framework.modules.validation.integrations.rules.interface_rule import InterfaceRule
+from pyspark.sql import DataFrame
+from typing import Dict
+import pandas as pd
+import re
+from io import BytesIO
+
+
+class RuleCoordinator(InterfaceRule):
+
+    def __init__(self, rule: ControlRule, data_frame: DataFrame):
+        super().__init__(rule, data_frame)
+
+    def process(self, file_date: str, file_contents: Dict[str, BytesIO]) -> None:
+        pattern = self.config.current_process_config().incoming_file.filename_unzipped_pattern
+        results = []
+        filenames = []
+        for filename, file_data in file_contents.items():
+            if file_data['validate']:
+                valid_filename = bool(re.match(pattern, filename))
+                results.append(valid_filename)
+                filenames.append(filename)
+        df_result = self.data_process.create_dataframe(
+            pd.DataFrame({'identifier': filenames, 'result': results})
+        ).data
+        result = self.rule.calculate_result(df_result)
+        if result.valid_identifiers:
+            self.rule.result.add_detail(f"Valid filenames: {', '.join(result.valid_identifiers)}")
+        if result.invalid_identifiers:
+            self.rule.result.add_detail(f"Invalid filenames: {', '.join(result.invalid_identifiers)}")
+            self.rule.result.add_detail(f'Expected pattern: {pattern}')
+        self.rule.result.set_data_date(file_date)
+
+```
+
+
+---
+## File: ./src/data_framework/modules/validation/interface_quality_controls.py
+```python
 from data_framework.modules.config.model.flows import DatabaseTable, Database, Technologies, Platform
 from data_framework.modules.storage.interface_storage import Layer
 from data_framework.modules.config.core import config
@@ -6053,13 +6850,23 @@ class ControlsTable:
         )
 
     @staticmethod
-    def filter_rules(layer: Layer, table_config: DatabaseTable) -> str:
-        return f"""
-            control_database = '{table_config.database.value}' AND
-            control_table = '{table_config.table}' AND
-            control_layer = '{layer.value}' AND
-            active_control_indicator
-        """
+    def filter_rules(layer: Layer, table_config: DatabaseTable, framework_controls: bool) -> str:
+        if framework_controls:
+            return f"""
+                control_database = '{table_config.database.value}' AND
+                control_table = '{table_config.table}' AND
+                control_layer = '{layer.value}' AND
+                control_algorithm_type = '{AlgorithmType.DATA_FRAMEWORK.value}' AND
+                active_control_indicator
+            """
+        else:
+            return f"""
+                control_database = '{table_config.database.value}' AND
+                control_table = '{table_config.table}' AND
+                control_layer = '{layer.value}' AND
+                control_algorithm_type <> '{AlgorithmType.DATA_FRAMEWORK.value}' AND
+                active_control_indicator
+            """
 
 
 @dataclass
@@ -6119,7 +6926,7 @@ class ControlResult:
         })
         return result
 
-    def set_data_date(self, custom_data_date: datetime = None) -> None:
+    def set_data_date(self, custom_data_date: str = None) -> None:
         if not custom_data_date:
             file_date = config().parameters.file_date
             if file_date is not None:
@@ -6342,6 +7149,7 @@ class AlgorithmType(Enum):
     PYTHON = "Python"
     SQL = "SQL"
     REGEX = "Regex"
+    DATA_FRAMEWORK = "Data Framework"
 
     @classmethod
     def available_algorithm_types(cls) -> List[str]:
@@ -6402,14 +7210,22 @@ class ControlRule:
 
     @classmethod
     def from_series(cls, rule: pd.Series) -> Any:
+        database_table = config().current_process_config().search_table_config(
+            database=rule['control_database'],
+            table=rule['control_table']
+        )
+
+        if database_table is None:
+            database_table = DatabaseTable(
+                database=rule['control_database'],
+                table=rule['control_table']
+            )
+
         return cls(
             master_id=rule['control_master_id'],
             table_id=rule['control_table_id'],
             layer=rule['control_layer'],
-            database_table=DatabaseTable(
-                database=rule['control_database'],
-                table=rule['control_table']
-            ),
+            database_table=database_table,
             field=rule['control_field'],
             rule_description=rule['control_dataset_details'],
             level=rule['control_level'],
@@ -6473,6 +7289,7 @@ class InterfaceQualityControls(ABC):
         layer: Layer,
         table_config: DatabaseTable,
         df_data: Any = None,
+        framework_controls: bool = False,
         **kwargs: Dict[str, Any]
     ) -> ControlsResponse:
         pass
@@ -6481,15 +7298,12 @@ class InterfaceQualityControls(ABC):
     def set_parent(self, parent: Any) -> None:
         pass
 
-
 ```
 
-## src/data_framework/tests__init__.py
-## src/data_framework/tests/resources__init__.py
-## src/data_framework/tests/resources/configs__init__.py
-## src/data_framework/tests/test_utils.py
-```python
 
+---
+## File: ./src/data_framework/tests/test_utils.py
+```python
 import pytest
 from data_framework.modules.utils.logger import Logger
 
@@ -6498,12 +7312,12 @@ def test_logger():
     print("dsds")
     assert -1 == "Negative"
 
-
 ```
 
-## src/launchers/emr_launcher.py
-```python
 
+---
+## File: ./src/launchers/emr_launcher.py
+```python
 from data_framework.modules.exception.generic_exceptions import DataFrameworkError
 from importlib import import_module
 import sys
@@ -6566,15 +7380,16 @@ if __name__ == '__main__':
     process = parameters.get('process')
     launcher.main(dataflow, process)
 
-
 ```
 
-## tools/init.py
+
+---
+## File: ./tools/init.py
 ```python
+import os
 
 for root, dirs, files in os.walk('.\\data_framework\\src\\'):
     if '__init__.py' not in files:
         init_file = os.path.join(root, '__init__.py')
         open(init_file, 'a').close()
-
 ```
