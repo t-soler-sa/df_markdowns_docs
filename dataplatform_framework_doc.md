@@ -4435,7 +4435,10 @@ This script defines the abstract base class `DataFlowInterface` that serves as t
 interface_dataflow.py
 
 This module defines the abstract base class `DataFlowInterface` used as the foundation
-for all specific dataflow implementations in the data processing framework.
+for all specific dataflow implementations in the data processing framework. 
+It centralizes logic for reading/writing data, applying data quality controls, tracking metrics, 
+and saving state/results to AWS SSM. Each specific dataflow implementation 
+(e.g., landing to raw, raw to staging) should inherit from this interface.
 
 Purpose:
     - Standardizes initialization and structure across all dataflow classes.
@@ -4447,61 +4450,60 @@ Key Components:
     - Data classes for reporting and payloads: `DataQualityTable`, `DataQuality`, `OutputResponse`, `PayloadResponse`
     - Abstract base class `DataFlowInterface` with mandatory and reusable behaviors
 """
-
-from abc import ABC
-from data_framework.modules.config.core import config, Config
-from data_framework.modules.config.model.flows import (
-    TableDict,
-    DatabaseTable,
-    OutputReport,
-    ExecutionMode
-)
-from data_framework.modules.utils.logger import logger
-from data_framework.modules.data_process.core_data_process import CoreDataProcess
-from data_framework.modules.validation.core_quality_controls import CoreQualityControls
-from data_framework.modules.notification.core_notifications import CoreNotifications
-from data_framework.modules.notification.interface_notifications import NotificationToSend
-from data_framework.modules.monitoring.core_monitoring import (
-    CoreMonitoring,
-    Metric,
-    MetricNames
-)
-from data_framework.modules.exception.dataflow_exceptions import (
-    DataflowInitializationError,
-    PayloadResponseError
-)
-from data_framework.modules.exception.aws_exceptions import SSMError
-from dataclasses import dataclass, asdict, field
-from typing import Any, List, Optional
-import boto3
-import json
-import time
-
-
-# Data structure for defining a table to include in data quality checks
 @dataclass
 class DataQualityTable:
+    """
+    Represents a single table involved in a data quality check.
+    
+    Attributes:
+        database (str): The database name of the table.
+        table (str): The table name.
+    """
     database: str
     table: str
 
 
-# Group of quality check tables
 @dataclass
 class DataQuality:
+    """
+    Collection of DataQualityTable items for grouping quality control targets.
+    
+    Attributes:
+        tables (List[DataQualityTable]): A list of tables checked for quality.
+    """
     tables: List[DataQualityTable] = field(default_factory=list)
 
 
-# Output report for a single task or dataset
 @dataclass
 class OutputResponse:
+    """
+    Encapsulates the result of an output write operation.
+    
+    Attributes:
+        name (str): The identifier or name of the output.
+        success (bool): Flag indicating whether the operation succeeded.
+        error (Any): Error details in case of failure.
+    """
     name: str
     success: bool = False
     error: Any = None
 
 
-# Main output payload summarizing the result of a dataflow process
 @dataclass
 class PayloadResponse:
+    """
+    Represents the final output of a dataflow process including its status, file metadata,
+    data quality details, outputs, and notifications.
+    
+    Attributes:
+        success (bool): Flag indicating the overall success of the process.
+        next_stage (bool): Indicates whether to trigger the next stage.
+        file_name (str): Name of the incoming file (if applicable).
+        file_date (str): Date of the file.
+        data_quality (DataQuality): Data quality tables metadata.
+        outputs (List[OutputResponse]): List of output responses.
+        notifications (Optional[List[NotificationToSend]]): Notifications to be sent.
+    """
     success: bool = False
     next_stage: bool = False
     file_name: str = None
@@ -4512,82 +4514,88 @@ class PayloadResponse:
 
     def get_failed_outputs(self) -> List[str]:
         """
-        Returns a list of names for outputs that failed during the process.
+        Returns a list of output names that failed.
+        
+        Returns:
+            List[str]: Names of outputs where success is False.
         """
-        return [
+        failed_outputs = [
             output.name
             for output in self.outputs
             if not output.success
         ]
+        return failed_outputs
+
+aws_ssm_exceptions = ['TooManyUpdates']
 
 
 class DataFlowInterface(ABC):
     """
-    Abstract base class for all dataflow processes. Defines a consistent structure and
-    initializes the core framework components required for ETL operations.
+    Abstract base class for all specific dataflow processes. Provides shared infrastructure,
+    such as config loading, table reading, writing, monitoring, and payload reporting.
 
-    Subclasses must implement:
-        - `process()`: defines the logic specific to the dataflow stage.
-
-    Provides:
-        - Initialized services (e.g., config, logger, processing, notifications)
-        - Access to input/output table configs
-        - Helpers for reading, writing, casting
-        - Metrics and payload tracking
+    Subclasses must implement the `process()` method.
     """
 
-    # Property accessors for various initialized components
     @property
     def config(self) -> Config:
+        """Returns the loaded configuration for the current dataflow process."""
         return self.__config
 
     @property
     def logger(self):
+        """Returns the logger instance for logging messages."""
         return self.__logger
 
     @property
     def data_process(self) -> CoreDataProcess:
+        """Returns the data process handler (Spark/Pandas abstraction)."""
         return self.__data_process
 
     @property
     def quality_controls(self) -> CoreQualityControls:
+        """Returns the quality controls module for data validation."""
         return self.__quality_controls
 
     @property
     def notifications(self) -> CoreNotifications:
+        """Returns the notifications module for handling alerts."""
         return self.__notifications
 
     @property
     def source_tables(self) -> TableDict:
+        """Returns the dictionary of configured source tables."""
         return self.__current_process_config.source_tables
 
     @property
     def target_tables(self) -> TableDict:
+        """Returns the dictionary of configured target tables."""
         return self.__current_process_config.target_tables
 
     @property
     def payload_response(self) -> PayloadResponse:
+        """Returns the current payload response instance to be populated and saved."""
         return self.__payload_response
 
     @property
     def incoming_file(self) -> DatabaseTable:
+        """Returns the configured incoming file metadata."""
         return self.__current_process_config.incoming_file
 
     @property
     def output_file(self) -> DatabaseTable:
+        """Returns the configured output file metadata."""
         return self.__current_process_config.output_file
 
     @property
     def output_reports(self) -> List[OutputReport]:
+        """Returns the list of configured output reports."""
         return self.__current_process_config.output_reports
 
     def __init__(self):
         """
-        Initializes the dataflow process environment:
-            - Loads config and process definition
-            - Sets up core services (data processing, validation, notifications, monitoring)
-            - Tracks start time and emits initial metrics
-            - Prepares SSM client for result persistence
+        Initializes all shared modules and handles first-time monitoring setup. 
+        Raises a DataflowInitializationError on failure.
         """
         try:
             self.__config = config()
@@ -4597,10 +4605,13 @@ class DataFlowInterface(ABC):
             self.__quality_controls = CoreQualityControls()
             self.__notifications = CoreNotifications()
             self.__payload_response = PayloadResponse()
-            self.__ssm_client = boto3.client('ssm', region_name=self.config.parameters.region)
             self.__monitoring = CoreMonitoring()
 
-            # Emit start-of-dataflow event if this is the first process in the chain
+            self.__ssm_client = boto3.client(
+                'ssm',
+                region_name=self.config.parameters.region
+            )
+
             if self.config.is_first_process:
                 self.__monitoring.track_process_metric(
                     name=MetricNames.DATAFLOW_START_EVENT,
@@ -4608,89 +4619,137 @@ class DataFlowInterface(ABC):
                 )
 
             self.__start_process = time.time()
-
         except Exception:
             raise DataflowInitializationError()
 
     def process(self):
         """
-        Abstract method for the main dataflow logic. Must be implemented by all subclasses.
+        Abstract method to be implemented by subclasses with the main dataflow logic.
         """
         raise NotImplementedError('It is mandatory to implement process() function')
 
     def vars(self, name: str):
         """
-        Retrieve a named variable from the `vars` section of the process configuration.
+        Retrieve a named variable from the process configuration.
+
+        Args:
+            name (str): Variable name.
+
+        Returns:
+            Any: Value associated with the variable.
         """
         return self.__current_process_config.vars.get_variable(name=name)
 
-    def read_table_with_casting(self, name_of_raw_table: str, name_of_staging_table_to_casting: str = None) -> Any:
+    def read_table_with_casting(
+        self,
+        name_of_raw_table: str,
+        name_of_staging_table_to_casting: str = None,
+        apply_quality_controls: bool = True
+    ) -> Any:
         """
-        Reads a raw table and casts it to match the schema of a staging target table.
-        Logs metadata depending on execution mode (FULL or PARTITIONED).
+        Reads a raw table and applies casting and optional quality controls.
+
+        Args:
+            name_of_raw_table (str): Key for the raw input table.
+            name_of_staging_table_to_casting (str, optional): Key for the casting config table.
+            apply_quality_controls (bool): Whether to validate the data.
+
+        Returns:
+            Any: DataFrame after casting and optional quality checks.
         """
         input_table = self.source_tables.table(name_of_raw_table)
-        name_of_staging_table_to_casting = name_of_staging_table_to_casting or name_of_raw_table
+        name_of_staging_table_to_casting = (
+            name_of_staging_table_to_casting
+            if name_of_staging_table_to_casting
+            else name_of_raw_table
+        )
         execution_mode = self.config.parameters.execution_mode
         casting_table = self.target_tables.table(name_of_staging_table_to_casting)
-
-        response = self.data_process.datacast(table_source=input_table, table_target=casting_table)
+        response = self.data_process.datacast(
+            table_source=input_table,
+            table_target=casting_table
+        )
         df = response.data
-
         if execution_mode == ExecutionMode.FULL:
-            self.logger.info(f'[ExecutionMode:{execution_mode.value}] Read from {input_table.full_name}')
+            self.logger.info(
+                f'[ExecutionMode:{execution_mode.value}] Read from {input_table.full_name}'
+            )
         else:
             self.logger.info(
-                f"[ExecutionMode:{execution_mode.value}] Read {df.count()} rows "
+                f"[ExecutionMode:{execution_mode.value}] Read {df.count()} rows " +
                 f"from {input_table.full_name} with partition {input_table.sql_where}"
             )
+        if apply_quality_controls:
+            controls_response = self.quality_controls.validate(
+                layer=self.config.source_layer,
+                table_config=input_table,
+                df_data=df,
+                framework_controls=True
+            )
+            df = controls_response.data
         return df
 
-    def read_table(self, name_of_table: str) -> Any:
+    def read_table(self, name_of_table: str, apply_quality_controls: bool = True) -> Any:
         """
-        Reads a table using standard read logic. Applies filter depending on execution mode.
-        Logs the result.
+        Reads a table using current config and applies optional quality controls.
+
+        Args:
+            name_of_table (str): Key of the table to read.
+            apply_quality_controls (bool): Whether to validate the data.
+
+        Returns:
+            Any: DataFrame after reading and optional quality checks.
         """
         input_table = self.source_tables.table(name_of_table)
         execution_mode = self.config.parameters.execution_mode
-        sql_where = None if execution_mode == ExecutionMode.FULL.value else input_table.sql_where
-
+        sql_where = input_table.sql_where
+        if execution_mode == ExecutionMode.FULL.value:
+            sql_where = None
         response = self.data_process.read_table(
             database=input_table.database_relation,
             table=input_table.table,
             filter=sql_where
         )
         df = response.data
-
         if execution_mode == ExecutionMode.FULL.value:
             self.logger.info(
-                f'[ExecutionMode:{execution_mode}] Read {df.count()} rows from {input_table.full_name}'
+                f'[ExecutionMode:{execution_mode}] Read from {input_table.full_name}'
             )
         else:
             self.logger.info(
-                f"[ExecutionMode:{execution_mode}] Read {df.count()} rows "
-                f"from {input_table.full_name} with partition {sql_where}"
+                f"[ExecutionMode:{execution_mode}] from {input_table.full_name} with partition {sql_where}"
             )
+        if apply_quality_controls:
+            controls_response = self.quality_controls.validate(
+                layer=self.config.source_layer,
+                table_config=input_table,
+                df_data=df,
+                framework_controls=True
+            )
+            df = controls_response.data
         return df
 
     def write(self, df: Any, output_table_key: str) -> None:
         """
-        Writes a DataFrame to the specified output table using `merge`.
-        Logs success. TODO: Primary keys are assumed; may require dynamic lookup.
+        Writes a DataFrame to a configured target table using merge operation.
+
+        Args:
+            df (Any): The data to write.
+            output_table_key (str): Key of the target table.
         """
         output_table = self.target_tables.table(output_table_key)
         self.data_process.merge(
             df,
             output_table.database_relation,
             output_table.table,
-            output_table.primary_keys  # Assumes these are known; may need to extract from schema
+            # TODO: obtain primary keys from Glue table
+            output_table.primary_keys
         )
         self.logger.info(f'Successfully inserted data into {output_table.full_name}')
 
     def save_monitorization(self):
         """
-        Tracks metrics for end-of-process status and total duration.
-        Optionally tracks DATAFLOW_END_EVENT if this is the last process.
+        Tracks end-of-process metrics including duration and successful completion.
         """
         seconds = time.time() - self.__start_process
 
@@ -4705,64 +4764,68 @@ class DataFlowInterface(ABC):
             value=seconds
         )
 
-        # Future extension: add end-of-dataflow marker
-        # if not self.config.has_next_process:
-        #     self.__monitoring.track_process_metric(
-        #         name=MetricNames.DATAFLOW_END_EVENT,
-        #         value=1,
-        #         success=True
-        #     )
-
     def save_payload_response(self):
         """
-        Compiles and saves the payload response for the current process:
-            - Adds data quality tables
-            - Attaches notification list
-            - Converts payload to JSON
-            - Saves JSON to AWS SSM under a structured name
-
-        Handles and raises structured errors (SSMError, PayloadResponseError).
+        Assembles and saves the process result payload to AWS SSM.
+        Includes output data quality metadata and pending notifications.
         """
         try:
-            # Populate data quality table info based on stage
-            if self.config.parameters.process == 'landing_to_raw':
+            if isinstance(self.__current_process_config, LandingToRaw):
                 dq_table = DataQualityTable(
                     database=self.__current_process_config.output_file.database.value,
                     table=self.__current_process_config.output_file.table
                 )
                 self.payload_response.data_quality.tables.append(dq_table)
-            elif self.config.parameters.process != 'business_to_output':
-                for table_name in self.__current_process_config.target_tables.tables:
-                    table_info = self.__current_process_config.target_tables.table(table_key=table_name)
+            elif isinstance(self.__current_process_config, GenericProcess):
+                for tale_name in self.__current_process_config.target_tables.tables:
+                    table_info = self.__current_process_config.target_tables.table(table_key=tale_name)
                     dq_table = DataQualityTable(
                         database=table_info.database.value,
                         table=table_info.table
                     )
+
                     self.payload_response.data_quality.tables.append(dq_table)
-
-            # Add any pending notifications
             self.payload_response.notifications = self.__notifications.get_notifications_to_send()
-
-            # Serialize response to JSON
             payload_json = json.dumps(asdict(self.payload_response), ensure_ascii=False, indent=2)
+            self._update_ssm_key(value=payload_json)
+        except Exception:
+            raise PayloadResponseError()
+        
+    def _update_ssm_key(self, value: str):
+        """
+        Stores a string value in AWS SSM Parameter Store with retry logic on specific failures.
 
-            # Store in AWS SSM
-            ssm_name = (
-                f'/dataflow/{self.config.project_id}/'
-                f'{self.config.parameters.dataflow}-{self.config.parameters.process}/result'
-            )
+        Args:
+            value (str): The stringified payload to save.
+
+        Raises:
+            SSMError: If the save fails after all retry attempts.
+        """
+        max_retries = 6
+        secure_random = secrets.SystemRandom()
+
+        ssm_name = (
+            f'/dataflow/{self.config.project_id}/' +
+            f'{self.config.parameters.dataflow}-{self.config.parameters.process}/result'
+        )
+
+        for attempt in range(max_retries):
             try:
                 self.__ssm_client.put_parameter(
                     Name=ssm_name,
-                    Value=payload_json,
+                    Value=value,
                     Type='String',
                     Overwrite=True
                 )
-            except Exception:
-                raise SSMError(error_message=f'Error saving parameter {ssm_name} in SSM')
-
-        except Exception:
-            raise PayloadResponseError()
+                break
+            except Exception as exception:
+                if any(word in str(exception) for word in aws_ssm_exceptions) and attempt < max_retries - 1:
+                    logger.warning(exception)
+                    seconds_to_sleep = secure_random.randrange(15, 50)
+                    logger.warning(f'[RETRY] {attempt} of {max_retries}: {seconds_to_sleep} seconds')
+                    time.sleep(seconds_to_sleep)
+                else:
+                    raise SSMError(error_message=f'Error saving parameter {ssm_name} in SSM')
 
 ```
 
